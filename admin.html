@@ -451,7 +451,7 @@ window.publishData = async function() {
       // Pivot
       const pivot = {};
       UNIDADES.forEach(u => {
-        pivot[u] = Math.round(rows.filter(r => r.cc === u).reduce((s,r) => s+r.valor, 0)*100/100000) / 100;
+        pivot[u] = Math.round(rows.filter(r => r.cc === u).reduce((s,r) => s+r.valor, 0) / 10) / 100;
       });
 
       // Active clients
