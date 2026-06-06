@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Vena — Seed Firebase</title>
+<style>
+  body { font-family: monospace; background: #0d0f14; color: #e8ecf4; padding: 32px; }
+  pre { background: #161920; padding: 16px; border-radius: 8px; font-size: 12px; max-height: 400px; overflow-y: auto; }
+  button { background: #3a7bd5; color: #fff; border: none; padding: 12px 24px; border-radius: 7px; font-size: 14px; cursor: pointer; margin-top: 16px; }
+  .ok { color: #34d399; } .err { color: #f87171; }
+</style>
+</head>
+<body>
+<h2>🔥 Vena Dashboard — Seed Firebase</h2>
+<p>Este script envia os dados históricos para o Firestore. Execute apenas uma vez.</p>
+<button onclick="runSeed()">▶ Executar Seed</button>
+<pre id="log">Aguardando...</pre>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getFirestore, doc, setDoc, collection, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyAK4lsunhdu9NGxNUw4P2_QYgeDArzgwc8",
+  authDomain: "vena-dashboard-elit.firebaseapp.com",
+  projectId: "vena-dashboard-elit",
+  storageBucket: "vena-dashboard-elit.firebasestorage.app",
+  messagingSenderId: "165503793782",
+  appId: "1:165503793782:web:c67b004fbb88eedee43d57"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const auth = getAuth(app);
+const log = document.getElementById('log');
+
+function logMsg(msg, cls='') {
+  log.innerHTML += `<span class="${cls}">${msg}</span>\n`;
+  log.scrollTop = log.scrollHeight;
+}
+
+window.runSeed = async function() {
+  log.innerHTML = '';
+  const email = prompt('Email Firebase Admin:');
+  const pass  = prompt('Senha:');
+  if (!email || !pass) return;
+
+  try {
+    logMsg('🔐 Autenticando...');
+    await signInWithEmailAndPassword(auth, email, pass);
+    logMsg('✓ Autenticado', 'ok');
+
+    logMsg('📦 Carregando dados iniciais...');
+    const resp = await fetch('initial_data.json');
+    const data = await resp.json();
+    logMsg(`✓ ${data.all_months.length} meses encontrados`, 'ok');
+
+    // Write metadata doc
+    logMsg('📝 Salvando metadata...');
+    await setDoc(doc(db, 'dashboard', 'meta'), {
+      all_months: data.all_months,
+      selectedMonth: data.selectedMonth,
+      updatedAt: new Date().toISOString()
+    });
+    logMsg('✓ metadata', 'ok');
+
+    // Write each month as a separate doc (avoids 1MB Firestore limit)
+    logMsg('📊 Salvando dados mensais...');
+    for (const mes of data.all_months) {
+      const monthDoc = {
+        mes,
+        pivot: {},
+        active_clients: data.active_clients[mes] || 0,
+        net_additions: data.net_additions[mes] || 0,
+        combos: data.combos[mes] || {},
+        fat_cluster: data.fat_cluster[mes] || {},
+        cli_cluster: data.cli_cluster[mes] || {},
+        svc_qty: data.svc_qty[mes] || {},
+        ratio_svc: data.ratio_svc[mes] || 0,
+        ratio_boti: data.ratio_boti[mes] || 0,
+      };
+      // Pivot per unidade
+      for (const u of Object.keys(data.pivot)) {
+        monthDoc.pivot[u] = data.pivot[u][mes] || 0;
+      }
+      await setDoc(doc(db, 'dashboard', 'months_' + mes.replace('-','')), monthDoc);
+      logMsg(`  ✓ ${mes}`, 'ok');
+    }
+
+    // Write top10
+    logMsg('🏆 Salvando top10...');
+    await setDoc(doc(db, 'dashboard', 'top10'), {
+      top10_2024: data.top10_2024 || [],
+      top10_2025: data.top10_2025 || [],
+      top10_2026: data.top10_2026 || [],
+    });
+    logMsg('✓ top10', 'ok');
+
+    // Write NPS
+    logMsg('📈 Salvando NPS...');
+    await setDoc(doc(db, 'dashboard', 'nps'), data.nps);
+    logMsg('✓ NPS', 'ok');
+
+    // Write reference in batches of 400
+    logMsg('👥 Salvando referência de clientes...');
+    const refs = data.reference;
+    for (let i = 0; i < refs.length; i += 400) {
+      const batch = writeBatch(db);
+      refs.slice(i, i+400).forEach(r => {
+        const id = r.cliente.replace(/[^a-zA-Z0-9]/g, '_').substring(0, 100);
+        batch.set(doc(db, 'reference', id), r);
+      });
+      await batch.commit();
+      logMsg(`  ✓ ${Math.min(i+400, refs.length)}/${refs.length} clientes`, 'ok');
+    }
+
+    logMsg('\n🎉 Seed concluído com sucesso!', 'ok');
+    logMsg('Agora você pode fechar esta página e usar o dashboard.', 'ok');
+  } catch(e) {
+    logMsg('❌ Erro: ' + e.message, 'err');
+    console.error(e);
+  }
+};
+</script>
+</body>
+</html>

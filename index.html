@@ -1,0 +1,1815 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard Vena</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
+
+  :root {
+    --bg: #f4f6fa;
+    --surface: #ffffff;
+    --surface2: #f0f2f7;
+    --border: #dde1ea;
+    --accent: #3a7bd5;
+    --accent2: #1db87a;
+    --accent3: #f59e0b;
+    --accent4: #e05252;
+    --text: #1a1f2e;
+    --text2: #5a6478;
+    --text3: #9aa3b2;
+    --up: #1db87a;
+    --down: #e05252;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+
+  /* ── TOPBAR ── */
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 32px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    box-shadow: 0 1px 8px rgba(0,0,0,0.06);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .topbar-left { display: flex; align-items: center; gap: 16px; }
+  .period-badge {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 5px 12px;
+    font-size: 13px;
+    color: var(--text2);
+    font-family: 'DM Mono', monospace;
+  }
+  .topbar-right { display: flex; gap: 10px; align-items: center; }
+
+  /* ── TABS ── */
+  .tabs {
+    display: flex;
+    gap: 2px;
+    padding: 16px 32px 0;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg);
+  }
+  .tab {
+    padding: 10px 20px;
+    border-radius: 8px 8px 0 0;
+    border: 1px solid transparent;
+    border-bottom: none;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text2);
+    background: transparent;
+    transition: all .2s;
+  }
+  .tab:hover { color: var(--text); background: var(--surface2); }
+  .tab.active {
+    color: var(--text);
+    background: var(--surface);
+    border-color: var(--border);
+    border-bottom-color: var(--surface);
+    margin-bottom: -1px;
+  }
+
+  /* ── PANELS ── */
+  .panel { display: none; padding: 28px 32px; }
+  .panel.active { display: block; }
+
+  /* ── SECTION TITLE ── */
+  .section-title {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--text3);
+    margin-bottom: 16px;
+  }
+
+  /* ── KPI CARDS ── */
+  .kpi-row { display: grid; grid-template-columns: repeat(6, 1fr); gap: 14px; margin-bottom: 28px; }
+  .kpi {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 22px;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+  }
+  .kpi::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: var(--kpi-color, var(--accent));
+  }
+  .kpi-label { font-size: 11px; color: var(--text2); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; }
+  .kpi-value { font-size: 26px; font-weight: 700; font-family: 'DM Mono', monospace; letter-spacing: -1px; }
+  .kpi-delta {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: 12px; font-family: 'DM Mono', monospace;
+    margin-top: 6px;
+  }
+  .kpi-delta.up { color: var(--up); }
+  .kpi-delta.down { color: var(--down); }
+  .kpi-sub { font-size: 11px; color: var(--text2); margin-top: 4px; }
+
+  /* ── GRID ── */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+  .grid-big-small { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; margin-bottom: 20px; }
+
+  /* ── CARD ── */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 22px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+  }
+  .card-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text2);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 18px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .card canvas { max-height: 220px; }
+
+  /* ── TABLE ── */
+  .data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .data-table th {
+    text-align: left; padding: 8px 12px; font-size: 11px; font-weight: 600;
+    color: var(--text2); text-transform: uppercase; letter-spacing: 0.8px;
+    border-bottom: 1px solid var(--border);
+  }
+  .data-table td { padding: 9px 12px; border-bottom: 1px solid var(--border); }
+  .data-table tr:last-child td { border-bottom: none; }
+  .data-table tr:hover td { background: var(--surface2); }
+  .num { font-family: 'DM Mono', monospace; text-align: right; }
+  .delta-up { color: var(--up); font-family: 'DM Mono', monospace; font-size: 12px; }
+  .delta-down { color: var(--down); font-family: 'DM Mono', monospace; font-size: 12px; }
+  .pct-up::before { content: '↑ '; }
+  .pct-down::before { content: '↓ '; }
+
+  /* ── MONTH SELECTOR ── */
+  .month-selector {
+    display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 24px; align-items: center;
+  }
+  .month-selector label { font-size: 12px; color: var(--text2); margin-right: 4px; }
+  .month-btn {
+    padding: 5px 11px; border-radius: 6px; border: 1px solid var(--border);
+    background: var(--surface2); color: var(--text2); font-size: 12px;
+    font-family: 'DM Mono', monospace; cursor: pointer; transition: all .15s;
+  }
+  .month-btn:hover { border-color: var(--accent); color: var(--text); }
+  .month-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+
+  /* ── NPS ── */
+  .nps-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .nps-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 22px; box-shadow: 0 1px 4px rgba(0,0,0,0.04); }
+  .nps-title { font-size: 12px; font-weight: 600; color: var(--text2); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 18px; }
+  .nps-big { font-size: 42px; font-weight: 700; font-family: 'DM Mono', monospace; }
+  .nps-compare { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px; }
+  .nps-year { font-size: 11px; color: var(--text2); margin-bottom: 4px; }
+  .nps-val { font-size: 20px; font-weight: 700; font-family: 'DM Mono', monospace; }
+  .nps-bar-row { display: flex; gap: 6px; align-items: center; margin-top: 10px; font-size: 11px; }
+  .nps-bar { height: 6px; border-radius: 3px; flex: 1; }
+  .nps-edit-btn {
+    background: var(--surface2); border: 1px solid var(--border); color: var(--text2);
+    padding: 4px 10px; border-radius: 5px; font-size: 11px; cursor: pointer;
+    transition: all .15s;
+  }
+  .nps-edit-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* ── NPS MODAL ── */
+  .modal-overlay {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,.7);
+    z-index: 1000; align-items: center; justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+    padding: 28px; width: 480px; max-width: 95vw;
+  }
+  .modal-title { font-size: 15px; font-weight: 700; margin-bottom: 20px; }
+  .modal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  .field label { font-size: 11px; color: var(--text2); text-transform: uppercase; letter-spacing: 0.8px; }
+  .field input, .field select {
+    background: var(--surface2); border: 1px solid var(--border); color: var(--text);
+    padding: 9px 12px; border-radius: 7px; font-size: 13px; font-family: 'DM Sans', sans-serif;
+    outline: none; transition: border-color .15s;
+  }
+  .field input:focus, .field select:focus { border-color: var(--accent); }
+  .modal-footer { display: flex; gap: 10px; justify-content: flex-end; margin-top: 22px; }
+  .btn-primary {
+    background: var(--accent); color: #fff; border: none; padding: 9px 20px;
+    border-radius: 7px; font-size: 13px; font-weight: 600; cursor: pointer;
+    transition: opacity .15s;
+  }
+  .btn-primary:hover { opacity: .85; }
+  .btn-secondary {
+    background: var(--surface2); color: var(--text2); border: 1px solid var(--border);
+    padding: 9px 20px; border-radius: 7px; font-size: 13px; cursor: pointer;
+  }
+
+  /* ── UPLOAD / CLASSIFICAÇÃO ── */
+  .upload-zone {
+    border: 2px dashed var(--border); border-radius: 12px; padding: 40px;
+    text-align: center; cursor: pointer; transition: all .2s; margin-bottom: 24px;
+  }
+  .upload-zone:hover, .upload-zone.drag { border-color: var(--accent); background: rgba(79,142,247,.05); }
+  .upload-icon { font-size: 36px; margin-bottom: 12px; }
+  .upload-title { font-size: 15px; font-weight: 600; margin-bottom: 6px; }
+  .upload-sub { font-size: 13px; color: var(--text2); }
+  .upload-sub span { color: var(--accent); }
+  #fileInput { display: none; }
+
+  .classify-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .classify-table th {
+    padding: 8px 12px; font-size: 11px; font-weight: 600; color: var(--text2);
+    text-transform: uppercase; letter-spacing: 0.8px; border-bottom: 1px solid var(--border);
+    text-align: left;
+  }
+  .classify-table td { padding: 7px 12px; border-bottom: 1px solid var(--border); }
+  .classify-table select {
+    background: var(--surface2); border: 1px solid var(--border); color: var(--text);
+    padding: 5px 8px; border-radius: 5px; font-size: 12px; outline: none;
+    min-width: 130px;
+  }
+  .classify-table select:focus { border-color: var(--accent); }
+  .tag {
+    display: inline-block; padding: 2px 8px; border-radius: 4px;
+    font-size: 11px; font-weight: 600;
+  }
+  .tag-new { background: rgba(79,142,247,.15); color: var(--accent); }
+  .tag-known { background: rgba(52,211,153,.1); color: var(--accent2); }
+
+  .action-bar {
+    display: flex; gap: 12px; align-items: center; padding: 16px 0; flex-wrap: wrap;
+  }
+  .btn-success {
+    background: var(--accent2); color: #0d0f14; border: none; padding: 10px 22px;
+    border-radius: 7px; font-size: 13px; font-weight: 700; cursor: pointer;
+    transition: opacity .15s;
+  }
+  .btn-success:hover { opacity: .85; }
+  .info-text { font-size: 12px; color: var(--text2); }
+
+  /* ── TOP10 BARS ── */
+  .top10-row {
+    display: flex; align-items: center; gap: 10px; margin-bottom: 10px; font-size: 13px;
+  }
+  .top10-name { width: 180px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-shrink: 0; }
+  .top10-bar-wrap { flex: 1; background: var(--surface2); border-radius: 3px; height: 8px; overflow: hidden; }
+  .top10-bar-fill { height: 100%; border-radius: 3px; background: var(--accent); transition: width .5s ease; }
+  .top10-val { font-family: 'DM Mono', monospace; font-size: 12px; color: var(--text2); width: 70px; text-align: right; flex-shrink: 0; }
+
+  /* ── COMBOS PIE ── */
+  .combos-legend { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+  .legend-item { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+  .legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+
+  /* ── STATUS BAR ── */
+  .status-bar {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    background: var(--surface); border-top: 1px solid var(--border); box-shadow: 0 -1px 6px rgba(0,0,0,0.04);
+    padding: 8px 32px; display: flex; gap: 24px; align-items: center;
+    font-size: 11px; color: var(--text2); font-family: 'DM Mono', monospace;
+  }
+  .status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--up); display: inline-block; margin-right: 5px; }
+
+  /* scrollbar */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: #c8cdd8; border-radius: 3px; }
+
+  .mb-20 { margin-bottom: 20px; }
+
+  /* year toggle */
+  .year-toggle { display: flex; gap: 0; }
+  .year-btn {
+    padding: 5px 12px; border: 1px solid var(--border); background: var(--surface2);
+    color: var(--text2); font-size: 12px; cursor: pointer; transition: all .15s;
+  }
+  .year-btn:first-child { border-radius: 6px 0 0 6px; }
+  .year-btn:last-child { border-radius: 0 6px 6px 0; border-left: none; }
+  .year-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+  .full-width { grid-column: 1 / -1; }
+
+  /* Loading */
+  .loading-overlay {
+    position: fixed; inset: 0; background: #f4f6fa;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    z-index: 999; transition: opacity .4s;
+  }
+  .loading-overlay.hidden { opacity: 0; pointer-events: none; }
+  .loading-spinner {
+    width: 36px; height: 36px; border: 3px solid #dde1ea;
+    border-top-color: #3a7bd5; border-radius: 50%;
+    animation: spin .8s linear infinite; margin-bottom: 14px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loading-text { font-size: 13px; color: #5a6478; font-family: 'DM Sans',sans-serif; }
+  .admin-link {
+    font-size: 12px; color: var(--text2); text-decoration: none;
+    padding: 6px 12px; border: 1px solid var(--border); border-radius: 6px;
+    transition: all .15s;
+  }
+  .admin-link:hover { color: var(--accent); border-color: var(--accent); }
+  .last-update { font-size: 11px; color: var(--text3); }
+</style>
+</head>
+<body>
+
+<div class="loading-overlay" id="loadingOverlay">
+  <img src="logo.png" style="height:32px;margin-bottom:24px;opacity:.6" onerror="this.style.display='none'">
+  <div class="loading-spinner"></div>
+  <div class="loading-text">Carregando dados...</div>
+</div>
+
+
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div class="topbar-left">
+    <img src="logo.png" alt="Vena" style="height:32px;object-fit:contain;">
+    <div class="period-badge" id="periodBadge">Mar/2026</div>
+  </div>
+  <div class="topbar-right">
+    <div class="year-toggle">
+      <button class="year-btn" onclick="setCompareYear(2024)">vs 2024</button>
+      <button class="year-btn active" onclick="setCompareYear(2025)">vs 2025</button>
+    </div>
+    <a href="admin.html" class="admin-link">⚙ Admin</a>
+  </div>
+</div>
+
+<!-- TABS -->
+<div class="tabs">
+  <button class="tab active" onclick="showTab('dashboard')">Dashboard</button>
+  <button class="tab" onclick="showTab('clientes')">Clientes & Combos</button>
+  <button class="tab" onclick="showTab('atualizar')">Atualizar Base</button>
+  <button class="tab" onclick="showTab('nps')">NPS</button>
+</div>
+
+<!-- ════════════════════════════════════════
+     PANEL: DASHBOARD
+════════════════════════════════════════ -->
+<div id="panel-dashboard" class="panel active">
+
+  <!-- MONTH SELECTOR -->
+  <div class="month-selector" id="monthSelector">
+    <span class="section-title" style="margin:0">Mês de referência:</span>
+  </div>
+
+  <!-- KPIs -->
+  <div class="kpi-row">
+    <div class="kpi" style="--kpi-color: #4f8ef7">
+      <div class="kpi-label">Faturamento do Mês</div>
+      <div class="kpi-value" id="kpi-fat">R$ –</div>
+      <div class="kpi-delta" id="kpi-fat-delta"></div>
+      <div class="kpi-sub" id="kpi-fat-sub"></div>
+    </div>
+    <div class="kpi" style="--kpi-color: #34d399">
+      <div class="kpi-label">YTD</div>
+      <div class="kpi-value" id="kpi-ytd">R$ –</div>
+      <div class="kpi-delta" id="kpi-ytd-delta"></div>
+      <div class="kpi-sub" id="kpi-ytd-sub"></div>
+    </div>
+    <div class="kpi" style="--kpi-color: #f59e0b">
+      <div class="kpi-label">Clientes Ativos</div>
+      <div class="kpi-value" id="kpi-cli">–</div>
+      <div class="kpi-delta" id="kpi-cli-delta"></div>
+    </div>
+    <div class="kpi" style="--kpi-color: #a78bfa">
+      <div class="kpi-label">Ticket Médio/Cliente</div>
+      <div class="kpi-value" id="kpi-ticket">R$ –</div>
+      <div class="kpi-sub" id="kpi-ticket-sub"></div>
+    </div>
+    <div class="kpi" style="--kpi-color: #fb923c">
+      <div class="kpi-label">Ratio Boticário</div>
+      <div class="kpi-value" id="kpi-boti">–</div>
+      <div class="kpi-delta" id="kpi-boti-delta"></div>
+      <div class="kpi-sub" id="kpi-boti-sub"></div>
+    </div>
+    <div class="kpi" style="--kpi-color: #38bdf8">
+      <div class="kpi-label">Ratio Serviços/Cliente</div>
+      <div class="kpi-value" id="kpi-ratio">–</div>
+      <div class="kpi-delta" id="kpi-ratio-delta"></div>
+      <div class="kpi-sub" id="kpi-ratio-sub"></div>
+    </div>
+  </div>
+
+  <!-- ROW 2: evolução + unidades -->
+  <div class="grid-big-small">
+    <div class="card">
+      <div class="card-title">Faturamento Mensal — R$ Mil</div>
+      <canvas id="chartEvolucao"></canvas>
+    </div>
+    <div class="card">
+      <div class="card-title">Por Unidade — Mês</div>
+      <canvas id="chartUnidade"></canvas>
+    </div>
+  </div>
+
+  <!-- ROW 3: tabela unidades -->
+  <div class="card mb-20">
+    <div class="card-title">
+      <span>Visão por Unidade — Faturamento R$ Mil</span>
+    </div>
+    <div style="overflow-x:auto">
+      <table class="data-table" id="tabelaUnidades">
+        <thead><tr id="tabelaHead"></tr></thead>
+        <tbody id="tabelaBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ROW 4: TOP10 + Combos -->
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title">
+        <span id="top10Title">TOP 10 — YTD 2026</span>
+      </div>
+      <div id="top10Container"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Serviços por Cliente — Mês</div>
+      <div style="display:flex; gap:20px; align-items:flex-start">
+        <div style="position:relative; width:160px; flex-shrink:0">
+          <canvas id="chartCombos" style="max-height:180px"></canvas>
+        </div>
+        <div class="combos-legend" id="combosLegend"></div>
+      </div>
+      <table class="data-table" style="margin-top:16px" id="combosTable">
+        <thead><tr>
+          <th>Serviços/Cliente</th>
+          <th class="num">Qtd</th>
+          <th class="num">vs mês ant.</th>
+        </tr></thead>
+        <tbody id="combosBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ROW 5: Faturamento por tipo de cliente + Evolução clientes -->
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title">Faturamento por Tipo de Cliente — R$ Mil</div>
+      <canvas id="chartClusterFat" style="max-height:220px"></canvas>
+      <table class="data-table" style="margin-top:16px" id="clusterFatTable">
+        <thead><tr>
+          <th>Tipo</th>
+          <th class="num" id="clusterFatHead1"></th>
+          <th class="num" id="clusterFatHead2"></th>
+          <th class="num">Δ R$</th>
+          <th class="num">Δ %</th>
+        </tr></thead>
+        <tbody id="clusterFatBody"></tbody>
+      </table>
+    </div>
+    <div class="card">
+      <div class="card-title">Evolução de Clientes — Quantidade</div>
+      <canvas id="chartCliEvolucao" style="max-height:200px"></canvas>
+      <div class="card-title" style="margin-top:20px">Adições Líquidas — Clientes</div>
+      <canvas id="chartNetAdds" style="max-height:140px"></canvas>
+    </div>
+  </div>
+
+  <!-- ROW 6: Share clientes por tipo + Serviços quantidade -->
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title">Share de Clientes por Tipo — Mês</div>
+      <div style="display:flex; gap:24px; align-items:flex-start">
+        <div style="width:160px; flex-shrink:0">
+          <canvas id="chartClusterShare" style="max-height:190px"></canvas>
+        </div>
+        <div style="flex:1">
+          <div id="clusterShareLegend" style="display:flex;flex-direction:column;gap:10px;margin-top:4px"></div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Serviços por Unidade — Quantidade de Clientes</div>
+      <table class="data-table" id="svcQtyTable">
+        <thead><tr>
+          <th>Unidade</th>
+          <th class="num" id="svcQtyHead1"></th>
+          <th class="num" id="svcQtyHead2"></th>
+          <th class="num">Δ</th>
+          <th class="num">Δ %</th>
+        </tr></thead>
+        <tbody id="svcQtyBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════
+     PANEL: CLIENTES
+════════════════════════════════════════ -->
+<div id="panel-clientes" class="panel">
+  <div class="section-title">Base de Referência — Clientes</div>
+  <div class="card">
+    <div class="card-title">
+      <span>Classificação de Clientes</span>
+      <span style="font-size:11px;color:var(--text2)" id="refCount"></span>
+    </div>
+    <div style="overflow-x:auto; max-height:600px; overflow-y:auto">
+      <table class="data-table" id="refTable">
+        <thead><tr>
+          <th>Cliente</th>
+          <th>Cluster</th>
+          <th>Combo Padrão</th>
+        </tr></thead>
+        <tbody id="refBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════
+     PANEL: ATUALIZAR BASE
+════════════════════════════════════════ -->
+<div id="panel-atualizar" class="panel">
+  <div class="section-title">Upload da Nova Base de Faturamento</div>
+
+  <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()">
+    <div class="upload-icon">📂</div>
+    <div class="upload-title">Arraste ou clique para subir o arquivo</div>
+    <div class="upload-sub">Aceita <span>.xlsx</span> exportado do sistema · Colunas esperadas: exportação padrão Vena</div>
+    <input type="file" id="fileInput" accept=".xlsx,.xls" onchange="handleFileUpload(event)">
+  </div>
+
+  <div id="classifySection" style="display:none">
+    <div class="action-bar">
+      <div class="info-text" id="classifyInfo"></div>
+      <button class="btn-success" onclick="applyNewBase()">✓ Confirmar e Atualizar Dashboard</button>
+    </div>
+    <div style="overflow-x:auto; max-height:500px; overflow-y:auto">
+      <table class="classify-table" id="classifyTable">
+        <thead><tr>
+          <th>Cliente</th>
+          <th>Status</th>
+          <th>Cluster</th>
+          <th style="color:var(--accent2);font-size:11px">Combo (automático)</th>
+        </tr></thead>
+        <tbody id="classifyBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════
+     PANEL: NPS
+════════════════════════════════════════ -->
+<div id="panel-nps" class="panel">
+  <div class="section-title">NPS — Net Promoter Score</div>
+
+  <div style="display:flex; justify-content:flex-end; margin-bottom:16px">
+    <button class="nps-edit-btn" onclick="openNpsModal()">✏ Editar valores</button>
+  </div>
+
+  <div class="nps-grid" id="npsGrid"></div>
+</div>
+
+<!-- NPS MODAL -->
+<div class="modal-overlay" id="npsModal">
+  <div class="modal">
+    <div class="modal-title">Editar NPS</div>
+    <div class="modal-grid" id="npsModalFields"></div>
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="closeNpsModal()">Cancelar</button>
+      <button class="btn-primary" onclick="saveNps()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- STATUS BAR -->
+<div class="status-bar">
+  <span><span class="status-dot"></span>Dados carregados</span>
+  <span id="statusMes">Referência: Mar/2026</span>
+  <span id="statusClientes">299 clientes na base</span>
+  <span id="statusUpdated">Última atualização: arquivo original</span>
+</div>
+
+<div class="status-bar">
+  <span><span class="status-dot"></span>Live</span>
+  <span id="statusMes"></span>
+  <span id="statusClientes"></span>
+  <span id="lastUpdate" class="last-update"></span>
+</div>
+<script>
+
+// ══════════════════════════════════════════════════════════════════
+// DATA
+// ══════════════════════════════════════════════════════════════════
+
+
+};
+
+const UNIDADES = ['Comercial','Conecta','Contábil','Gerencial','Operacional','Suprimentos','TI','Treinamento'];
+const COMBO_COLORS = ['#4f8ef7','#34d399','#f59e0b','#a78bfa','#f87171'];
+const COMBO_LABELS = ['Mono','2 produtos','3 produtos','4 produtos','5 > Produtos'];
+
+let charts = {};
+
+// ══════════════════════════════════════════════════════════════════
+// UTILITIES
+// ══════════════════════════════════════════════════════════════════
+function fmtMil(v) {
+  if (v >= 1000) return 'R$ ' + (v/1000).toFixed(1) + ' Mi';
+  return 'R$ ' + v.toFixed(1) + ' Mil';
+}
+function fmtK(v) { return 'R$ ' + v.toLocaleString('pt-BR', {minimumFractionDigits:0, maximumFractionDigits:0}); }
+function pctStr(v) { return (v >= 0 ? '+' : '') + (v*100).toFixed(1) + '%'; }
+function monthLabel(m) {
+  const [y, mo] = m.split('-');
+  const nomes = ['','Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+  return nomes[parseInt(mo)] + '/' + y.slice(2);
+}
+function totalForMonth(m) {
+  return UNIDADES.reduce((s, u) => s + (state.pivot[u]?.[m] || 0), 0);
+}
+function ytdForMonth(m) {
+  const [y] = m.split('-');
+  return state.months.filter(x => x.startsWith(y) && x <= m).reduce((s, x) => s + totalForMonth(x), 0);
+}
+function sameMonthPrevYear(m) {
+  const [y, mo] = m.split('-');
+  return `${parseInt(y)-1}-${mo}`;
+}
+function compareMonth() {
+  const [y, mo] = state.selectedMonth.split('-');
+  return `${state.compareYear}-${mo}`;
+}
+
+// ══════════════════════════════════════════════════════════════════
+// TAB NAVIGATION
+// ══════════════════════════════════════════════════════════════════
+function showTab(id) {
+  document.querySelectorAll('.tab').forEach((t,i) => t.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  const tabs = ['dashboard','clientes','atualizar','nps'];
+  document.querySelectorAll('.tab')[tabs.indexOf(id)].classList.add('active');
+  document.getElementById('panel-' + id).classList.add('active');
+  if (id === 'clientes') renderRefTable();
+  if (id === 'nps') renderNps();
+}
+
+function setCompareYear(y) {
+  state.compareYear = y;
+  document.querySelectorAll('.year-btn').forEach((b,i) => b.classList.toggle('active', [2024,2025][i] === y));
+  renderDashboard();
+}
+
+// ══════════════════════════════════════════════════════════════════
+// MONTH SELECTOR
+// ══════════════════════════════════════════════════════════════════
+function buildMonthSelector() {
+  const el = document.getElementById('monthSelector');
+  el.innerHTML = '<span class="section-title" style="margin:0;flex-shrink:0">Mês de referência:</span>';
+  // Show last 12 months only
+  const recent = state.months.slice(-12);
+  recent.forEach(m => {
+    const btn = document.createElement('button');
+    btn.className = 'month-btn' + (m === state.selectedMonth ? ' active' : '');
+    btn.textContent = monthLabel(m);
+    btn.onclick = () => { state.selectedMonth = m; buildMonthSelector(); renderDashboard(); };
+    el.appendChild(btn);
+  });
+}
+
+// ══════════════════════════════════════════════════════════════════
+// KPIs
+// ══════════════════════════════════════════════════════════════════
+function renderKpis() {
+  const m = state.selectedMonth;
+  const mPrev = compareMonth();
+  const fat = totalForMonth(m);
+  const fatPrev = totalForMonth(mPrev);
+  const delta = fatPrev > 0 ? (fat - fatPrev) / fatPrev : 0;
+
+  document.getElementById('kpi-fat').textContent = fmtMil(fat);
+  const dEl = document.getElementById('kpi-fat-delta');
+  dEl.textContent = pctStr(delta) + ' vs ' + monthLabel(mPrev);
+  dEl.className = 'kpi-delta ' + (delta >= 0 ? 'up' : 'down');
+  document.getElementById('kpi-fat-sub').textContent = 'R$ ' + (fat*1000).toLocaleString('pt-BR',{minimumFractionDigits:0,maximumFractionDigits:0});
+
+  const ytd = ytdForMonth(m);
+  const [y, mo] = m.split('-');
+  const ytdPrev = ytdForMonth(`${state.compareYear}-${mo}`);
+  const ytdDelta = ytdPrev > 0 ? (ytd - ytdPrev) / ytdPrev : 0;
+  document.getElementById('kpi-ytd').textContent = fmtMil(ytd);
+  const ytdEl = document.getElementById('kpi-ytd-delta');
+  ytdEl.textContent = pctStr(ytdDelta) + ' vs YTD ' + state.compareYear;
+  ytdEl.className = 'kpi-delta ' + (ytdDelta >= 0 ? 'up' : 'down');
+  document.getElementById('kpi-ytd-sub').textContent = 'Acumulado Jan–' + monthLabel(m).split('/')[0];
+
+  const cli = state.activeClients[m] || 0;
+  const cliPrev = state.activeClients[mPrev] || 0;
+  const cliDelta = cli - cliPrev;
+  document.getElementById('kpi-cli').textContent = cli;
+  const cEl = document.getElementById('kpi-cli-delta');
+  cEl.textContent = (cliDelta >= 0 ? '+' : '') + cliDelta + ' vs ' + monthLabel(mPrev);
+  cEl.className = 'kpi-delta ' + (cliDelta >= 0 ? 'up' : 'down');
+
+  const ticket = cli > 0 ? (fat * 1000) / cli : 0;
+  document.getElementById('kpi-ticket').textContent = 'R$ ' + ticket.toLocaleString('pt-BR',{minimumFractionDigits:0,maximumFractionDigits:0});
+  document.getElementById('kpi-ticket-sub').textContent = fat.toFixed(1) + 'k / ' + cli + ' clientes';
+
+  // Ratio Boticário
+  const boti = state.ratio_boti[m] || 0;
+  const botiPrev = state.ratio_boti[mPrev] || 0;
+  const botiDelta = boti - botiPrev;
+  document.getElementById('kpi-boti').textContent = (boti*100).toFixed(1) + '%';
+  const botiEl = document.getElementById('kpi-boti-delta');
+  const gbCli = state.cli_cluster[m] ? (state.cli_cluster[m]['GB - Franquias']||0) + (state.cli_cluster[m]['GB- Truss']||0) : 0;
+  botiEl.textContent = (botiDelta >= 0 ? '+' : '') + (botiDelta*100).toFixed(1) + 'pp vs ' + monthLabel(mPrev);
+  botiEl.className = 'kpi-delta ' + (botiDelta >= 0 ? 'up' : 'down');
+  document.getElementById('kpi-boti-sub').textContent = gbCli + ' clientes GB / ' + cli + ' total';
+
+  // Ratio Serviços/Cliente
+  const ratioSvc = state.ratio_svc[m] || 0;
+  const ratioSvcPrev = state.ratio_svc[mPrev] || 0;
+  const ratioDelta = ratioSvc - ratioSvcPrev;
+  document.getElementById('kpi-ratio').textContent = ratioSvc.toFixed(2) + 'x';
+  const ratioEl = document.getElementById('kpi-ratio-delta');
+  ratioEl.textContent = (ratioDelta >= 0 ? '+' : '') + ratioDelta.toFixed(3) + ' vs ' + monthLabel(mPrev);
+  ratioEl.className = 'kpi-delta ' + (ratioDelta >= 0 ? 'up' : 'down');
+  document.getElementById('kpi-ratio-sub').textContent = 'Serviços únicos por cliente';
+
+  document.getElementById('periodBadge').textContent = monthLabel(m);
+  document.getElementById('statusMes').textContent = 'Referência: ' + monthLabel(m);
+}
+
+// ══════════════════════════════════════════════════════════════════
+// CHART: EVOLUÇÃO
+// ══════════════════════════════════════════════════════════════════
+function renderChartEvolucao() {
+  const months = state.months.slice(-15);
+  const [y] = state.selectedMonth.split('-');
+  const prevYear = state.compareYear;
+
+  const labels = months.map(monthLabel);
+  const vals = months.map(m => totalForMonth(m));
+
+  if (charts.evolucao) charts.evolucao.destroy();
+  const ctx = document.getElementById('chartEvolucao').getContext('2d');
+  charts.evolucao = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Faturamento R$ Mil',
+        data: vals,
+        borderColor: '#4f8ef7',
+        backgroundColor: 'rgba(79,142,247,0.08)',
+        borderWidth: 2,
+        pointRadius: months.map(m => m === state.selectedMonth ? 5 : 3),
+        pointBackgroundColor: months.map(m => m === state.selectedMonth ? '#4f8ef7' : 'transparent'),
+        pointBorderColor: '#4f8ef7',
+        fill: true,
+        tension: 0.3
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: true,
+      plugins: { legend: { display: false }, tooltip: {
+        callbacks: { label: ctx => ' R$ ' + ctx.raw.toFixed(1) + ' Mil' }
+      }},
+      scales: {
+        x: { grid: { color: '#e8ebf2' }, ticks: { color: '#5a6478', font: { size: 10 } } },
+        y: { grid: { color: '#e8ebf2' }, ticks: { color: '#5a6478', font: { size: 10 }, callback: v => v.toFixed(0) } }
+      }
+    }
+  });
+}
+
+// ══════════════════════════════════════════════════════════════════
+// CHART: UNIDADE DONUT
+// ══════════════════════════════════════════════════════════════════
+function renderChartUnidade() {
+  const m = state.selectedMonth;
+  const unidadeColors = ['#4f8ef7','#34d399','#f59e0b','#a78bfa','#f87171','#38bdf8','#fb923c','#4ade80'];
+  const vals = UNIDADES.map(u => state.pivot[u]?.[m] || 0).filter(v => v > 0);
+  const lbls = UNIDADES.filter(u => (state.pivot[u]?.[m] || 0) > 0);
+
+  if (charts.unidade) charts.unidade.destroy();
+  const ctx = document.getElementById('chartUnidade').getContext('2d');
+  charts.unidade = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: lbls,
+      datasets: [{ data: vals, backgroundColor: unidadeColors.slice(0, vals.length), borderWidth: 2, borderColor: '#161920' }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: true,
+      cutout: '65%',
+      plugins: {
+        legend: { position: 'bottom', labels: { color: '#5a6478', font: { size: 11 }, boxWidth: 10, padding: 10 } },
+        tooltip: { callbacks: { label: ctx => ' ' + ctx.label + ': R$ ' + ctx.raw.toFixed(1) + ' Mil' } }
+      }
+    }
+  });
+}
+
+// ══════════════════════════════════════════════════════════════════
+// TABLE: UNIDADES
+// ══════════════════════════════════════════════════════════════════
+function renderTabelaUnidades() {
+  const m = state.selectedMonth;
+  const [y, mo] = m.split('-');
+  const mPrev = compareMonth();
+  const mPrevYear = sameMonthPrevYear(m);
+
+  // YTD
+  const ytdMonths = state.months.filter(x => x.startsWith(y) && x <= m);
+  const ytdPrevMonths = state.months.filter(x => x.startsWith(state.compareYear) && x <= `${state.compareYear}-${mo}`);
+
+  const head = document.getElementById('tabelaHead');
+  head.innerHTML = `
+    <th>Unidade</th>
+    <th class="num">${monthLabel(mPrev)}</th>
+    <th class="num">${monthLabel(m)}</th>
+    <th class="num">Δ R$</th>
+    <th class="num">Δ %</th>
+    <th class="num">YTD ${state.compareYear}</th>
+    <th class="num">YTD ${y}</th>
+    <th class="num">Δ YTD R$</th>
+    <th class="num">Δ YTD %</th>
+  `;
+
+  const body = document.getElementById('tabelaBody');
+  body.innerHTML = '';
+
+  const rows = [...UNIDADES, '__TOTAL__'];
+  rows.forEach(u => {
+    const isTotal = u === '__TOTAL__';
+    const getVal = (mx, un) => isTotal ? UNIDADES.reduce((s,x) => s + (state.pivot[x]?.[mx]||0), 0)
+                                       : (state.pivot[un]?.[mx] || 0);
+    const vPrev = getVal(mPrev, u);
+    const vCurr = getVal(m, u);
+    const dR = vCurr - vPrev;
+    const dPct = vPrev > 0 ? dR / vPrev : 0;
+    const ytdP = ytdPrevMonths.reduce((s, mx) => s + getVal(mx, u), 0);
+    const ytdC = ytdMonths.reduce((s, mx) => s + getVal(mx, u), 0);
+    const ytdDR = ytdC - ytdP;
+    const ytdDPct = ytdP > 0 ? ytdDR / ytdP : 0;
+
+    if (!isTotal && vCurr === 0 && vPrev === 0 && ytdC === 0) return;
+
+    const tr = document.createElement('tr');
+    if (isTotal) tr.style.fontWeight = '700';
+    tr.innerHTML = `
+      <td>${isTotal ? 'Total' : u}</td>
+      <td class="num">${vPrev.toFixed(1)}</td>
+      <td class="num">${vCurr.toFixed(1)}</td>
+      <td class="num ${dR>=0?'delta-up':'delta-down'}">${dR>=0?'+':''}${dR.toFixed(1)}</td>
+      <td class="num ${dPct>=0?'delta-up':'delta-down'}">${pctStr(dPct)}</td>
+      <td class="num">${ytdP.toFixed(1)}</td>
+      <td class="num">${ytdC.toFixed(1)}</td>
+      <td class="num ${ytdDR>=0?'delta-up':'delta-down'}">${ytdDR>=0?'+':''}${ytdDR.toFixed(1)}</td>
+      <td class="num ${ytdDPct>=0?'delta-up':'delta-down'}">${pctStr(ytdDPct)}</td>
+    `;
+    body.appendChild(tr);
+  });
+}
+
+// ══════════════════════════════════════════════════════════════════
+// TOP 10
+// ══════════════════════════════════════════════════════════════════
+function renderTop10() {
+  const [y] = state.selectedMonth.split('-');
+  const data = y === '2026' ? state.top10_2026 : state.top10_2025;
+  const prevData = y === '2026' ? state.top10_2025 : [];
+  document.getElementById('top10Title').textContent = `TOP 10 — YTD ${y}`;
+
+  const max = data[0][1];
+  const cont = document.getElementById('top10Container');
+  cont.innerHTML = '';
+  data.forEach(([name, val], i) => {
+    const div = document.createElement('div');
+    div.className = 'top10-row';
+    div.innerHTML = `
+      <div class="top10-name" title="${name}">${i+1}. ${name}</div>
+      <div class="top10-bar-wrap"><div class="top10-bar-fill" style="width:${(val/max*100).toFixed(1)}%"></div></div>
+      <div class="top10-val">${(val/1000).toFixed(1)}k</div>
+    `;
+    cont.appendChild(div);
+  });
+}
+
+// ══════════════════════════════════════════════════════════════════
+// COMBOS
+// ══════════════════════════════════════════════════════════════════
+function renderCombos() {
+  const m = state.selectedMonth;
+  const prevM = state.months[state.months.indexOf(m) - 1];
+  const data = state.combos[m] || {};
+  const prevData = prevM ? (state.combos[prevM] || {}) : {};
+
+  const vals = COMBO_LABELS.map(l => data[l] || data[l.trim()] || 0);
+  const total = vals.reduce((s,v) => s+v, 0);
+
+  if (charts.combos) charts.combos.destroy();
+  const ctx = document.getElementById('chartCombos').getContext('2d');
+  charts.combos = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: COMBO_LABELS,
+      datasets: [{ data: vals, backgroundColor: COMBO_COLORS, borderWidth: 2, borderColor: '#161920' }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: true, cutout: '60%',
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${ctx.raw}` } } }
+    }
+  });
+
+  const legend = document.getElementById('combosLegend');
+  legend.innerHTML = '';
+  COMBO_LABELS.forEach((l, i) => {
+    const v = vals[i];
+    if (v === 0) return;
+    const div = document.createElement('div');
+    div.className = 'legend-item';
+    div.innerHTML = `<div class="legend-dot" style="background:${COMBO_COLORS[i]}"></div><span>${l}: <strong>${v}</strong></span>`;
+    legend.appendChild(div);
+  });
+
+  const body = document.getElementById('combosBody');
+  body.innerHTML = '';
+  COMBO_LABELS.forEach((l, i) => {
+    const v = data[l] || data[l.trim()] || 0;
+    const pv = prevData[l] || prevData[l.trim()] || 0;
+    const diff = v - pv;
+    if (v === 0 && pv === 0) return;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${l}</td>
+      <td class="num">${v}</td>
+      <td class="num ${diff>=0?'delta-up':'delta-down'}">${diff>=0?'+':''}${diff}</td>
+    `;
+    body.appendChild(tr);
+  });
+  const totPrev = Object.values(prevData).reduce((s,v)=>s+v,0);
+  const totDiff = total - totPrev;
+  const trTotal = document.createElement('tr');
+  trTotal.style.fontWeight = '700';
+  trTotal.innerHTML = `
+    <td>Total</td>
+    <td class="num">${total}</td>
+    <td class="num ${totDiff>=0?'delta-up':'delta-down'}">${totDiff>=0?'+':''}${totDiff}</td>
+  `;
+  body.appendChild(trTotal);
+}
+
+// ══════════════════════════════════════════════════════════════════
+// CHART: FATURAMENTO POR CLUSTER
+// ══════════════════════════════════════════════════════════════════
+function renderChartClusterFat() {
+  const months = state.months.slice(-15);
+  const labels = months.map(monthLabel);
+  const clusters = ['GB - Franquias','GB- Truss','Outros'];
+  const clusterColors = ['#3a7bd5','#34d399','#f59e0b'];
+
+  if (charts.clusterFat) charts.clusterFat.destroy();
+  const ctx = document.getElementById('chartClusterFat').getContext('2d');
+  charts.clusterFat = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: clusters.map((cl, i) => ({
+        label: cl,
+        data: months.map(m => state.fat_cluster[m]?.[cl] || 0),
+        borderColor: clusterColors[i],
+        backgroundColor: clusterColors[i] + '18',
+        borderWidth: 2,
+        fill: false,
+        tension: 0.3,
+        pointRadius: months.map(m => m === state.selectedMonth ? 5 : 2),
+        pointBackgroundColor: clusterColors[i]
+      }))
+    },
+    options: {
+      responsive: true, maintainAspectRatio: true,
+      plugins: {
+        legend: { position: 'bottom', labels: { color: '#5a6478', font: { size: 11 }, boxWidth: 10, padding: 10 } },
+        tooltip: { callbacks: { label: ctx => ' ' + ctx.dataset.label + ': R$ ' + ctx.raw.toFixed(1) + ' Mil' } }
+      },
+      scales: {
+        x: { grid: { color: '#e8ebf2' }, ticks: { color: '#5a6478', font: { size: 10 } } },
+        y: { grid: { color: '#e8ebf2' }, ticks: { color: '#5a6478', font: { size: 10 } } }
+      }
+    }
+  });
+
+  // Table
+  const m = state.selectedMonth;
+  const mPrev = compareMonth();
+  document.getElementById('clusterFatHead1').textContent = monthLabel(mPrev);
+  document.getElementById('clusterFatHead2').textContent = monthLabel(m);
+  const body = document.getElementById('clusterFatBody');
+  body.innerHTML = '';
+  let totCurr = 0, totPrev = 0;
+  clusters.forEach(cl => {
+    const vC = state.fat_cluster[m]?.[cl] || 0;
+    const vP = state.fat_cluster[mPrev]?.[cl] || 0;
+    const dR = vC - vP;
+    const dPct = vP > 0 ? dR/vP : 0;
+    totCurr += vC; totPrev += vP;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${cl}</td><td class="num">${vP.toFixed(1)}</td><td class="num">${vC.toFixed(1)}</td>
+      <td class="num ${dR>=0?'delta-up':'delta-down'}">${dR>=0?'+':''}${dR.toFixed(1)}</td>
+      <td class="num ${dPct>=0?'delta-up':'delta-down'}">${pctStr(dPct)}</td>`;
+    body.appendChild(tr);
+  });
+  const trTot = document.createElement('tr');
+  trTot.style.fontWeight = '700';
+  const totD = totCurr - totPrev;
+  const totP = totPrev > 0 ? totD/totPrev : 0;
+  trTot.innerHTML = `<td>Total</td><td class="num">${totPrev.toFixed(1)}</td><td class="num">${totCurr.toFixed(1)}</td>
+    <td class="num ${totD>=0?'delta-up':'delta-down'}">${totD>=0?'+':''}${totD.toFixed(1)}</td>
+    <td class="num ${totP>=0?'delta-up':'delta-down'}">${pctStr(totP)}</td>`;
+  body.appendChild(trTot);
+}
+
+// ══════════════════════════════════════════════════════════════════
+// CHART: EVOLUÇÃO CLIENTES
+// ══════════════════════════════════════════════════════════════════
+function renderChartCliEvolucao() {
+  const months = state.months.slice(-15);
+  const labels = months.map(monthLabel);
+
+  if (charts.cliEvolucao) charts.cliEvolucao.destroy();
+  const ctx = document.getElementById('chartCliEvolucao').getContext('2d');
+  charts.cliEvolucao = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: 'Total Clientes',
+          data: months.map(m => state.activeClients[m] || 0),
+          borderColor: '#34d399', backgroundColor: 'rgba(52,211,153,0.08)',
+          borderWidth: 2, fill: true, tension: 0.3,
+          pointRadius: months.map(m => m === state.selectedMonth ? 5 : 3),
+          pointBackgroundColor: months.map(m => m === state.selectedMonth ? '#34d399' : 'transparent'),
+          pointBorderColor: '#34d399'
+        },
+        {
+          label: 'GB Franquias',
+          data: months.map(m => state.cli_cluster[m]?.['GB - Franquias'] || 0),
+          borderColor: '#4f8ef7', backgroundColor: 'rgba(79,142,247,0.05)',
+          borderWidth: 1.5, fill: false, tension: 0.3, borderDash: [4,3],
+          pointRadius: 2, pointBorderColor: '#4f8ef7'
+        }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: true,
+      plugins: {
+        legend: { position: 'bottom', labels: { color: '#5a6478', font: { size: 11 }, boxWidth: 10, padding: 10 } },
+        tooltip: { callbacks: { label: ctx => ` ${ctx.dataset.label}: ${ctx.raw}` } }
+      },
+      scales: {
+        x: { grid: { color: '#e8ebf2' }, ticks: { color: '#5a6478', font: { size: 10 } } },
+        y: { grid: { color: '#e8ebf2' }, ticks: { color: '#5a6478', font: { size: 10 } } }
+      }
+    }
+  });
+}
+
+// ══════════════════════════════════════════════════════════════════
+// CHART: NET ADDITIONS
+// ══════════════════════════════════════════════════════════════════
+function renderChartNetAdds() {
+  const months = state.months.slice(-15);
+  const labels = months.map(monthLabel);
+  const vals = months.map(m => state.netAdditions[m] || 0);
+  const colors = vals.map(v => v >= 0 ? '#1db87a' : '#e05252');
+  const borderColors = vals.map(v => v >= 0 ? '#1db87a' : '#e05252');
+
+  if (charts.netAdds) charts.netAdds.destroy();
+  const ctx = document.getElementById('chartNetAdds').getContext('2d');
+  charts.netAdds = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Adições Líquidas',
+        data: vals,
+        backgroundColor: colors,
+        borderColor: borderColors,
+        borderWidth: 1,
+        borderRadius: 3
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: true,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: ctx => ' ' + (ctx.raw >= 0 ? '+' : '') + ctx.raw + ' clientes' } }
+      },
+      scales: {
+        x: { grid: { color: '#e8ebf2' }, ticks: { color: '#5a6478', font: { size: 10 } } },
+        y: {
+          grid: { color: '#e8ebf2' },
+          ticks: { color: '#5a6478', font: { size: 10 } },
+          afterDataLimits: axis => { axis.min = Math.min(axis.min, -1); axis.max = Math.max(axis.max, 1); }
+        }
+      }
+    }
+  });
+}
+
+// ══════════════════════════════════════════════════════════════════
+// CHART: SHARE CLIENTES POR CLUSTER
+// ══════════════════════════════════════════════════════════════════
+function renderClusterShare() {
+  const m = state.selectedMonth;
+  const clusters = ['GB - Franquias','GB- Truss','Outros'];
+  const clusterColors = ['#4f8ef7','#34d399','#f59e0b'];
+  const vals = clusters.map(cl => state.cli_cluster[m]?.[cl] || 0);
+  const total = vals.reduce((s,v) => s+v, 0);
+
+  if (charts.clusterShare) charts.clusterShare.destroy();
+  const ctx = document.getElementById('chartClusterShare').getContext('2d');
+  charts.clusterShare = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: clusters,
+      datasets: [{ data: vals, backgroundColor: clusterColors, borderWidth: 2, borderColor: '#161920' }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: true, cutout: '62%',
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${ctx.raw} (${(ctx.raw/total*100).toFixed(1)}%)` } }
+      }
+    }
+  });
+
+  const legend = document.getElementById('clusterShareLegend');
+  legend.innerHTML = '';
+  clusters.forEach((cl, i) => {
+    const v = vals[i];
+    const pct = total > 0 ? (v/total*100).toFixed(1) : '0.0';
+    const div = document.createElement('div');
+    div.style.cssText = 'display:flex;flex-direction:column;gap:2px';
+    div.innerHTML = `
+      <div style="display:flex;align-items:center;gap:7px">
+        <div style="width:10px;height:10px;border-radius:50%;background:${clusterColors[i]};flex-shrink:0"></div>
+        <span style="font-size:12px">${cl}</span>
+      </div>
+      <div style="padding-left:17px;font-size:13px;font-weight:700;font-family:'DM Mono',monospace">${v} <span style="font-size:11px;color:var(--text2);font-weight:400">${pct}%</span></div>
+    `;
+    legend.appendChild(div);
+  });
+}
+
+// ══════════════════════════════════════════════════════════════════
+// TABLE: SERVIÇOS QUANTIDADE
+// ══════════════════════════════════════════════════════════════════
+function renderSvcQtyTable() {
+  const m = state.selectedMonth;
+  const mPrev = compareMonth();
+  document.getElementById('svcQtyHead1').textContent = monthLabel(mPrev);
+  document.getElementById('svcQtyHead2').textContent = monthLabel(m);
+
+  const body = document.getElementById('svcQtyBody');
+  body.innerHTML = '';
+  let totC = 0, totP = 0;
+  UNIDADES.forEach(u => {
+    const vC = state.svc_qty[m]?.[u] || 0;
+    const vP = state.svc_qty[mPrev]?.[u] || 0;
+    if (vC === 0 && vP === 0) return;
+    const d = vC - vP;
+    const dPct = vP > 0 ? d/vP : 0;
+    totC += vC; totP += vP;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${u}</td><td class="num">${vP}</td><td class="num">${vC}</td>
+      <td class="num ${d>=0?'delta-up':'delta-down'}">${d>=0?'+':''}${d}</td>
+      <td class="num ${dPct>=0?'delta-up':'delta-down'}">${pctStr(dPct)}</td>`;
+    body.appendChild(tr);
+  });
+  const trTot = document.createElement('tr');
+  trTot.style.fontWeight = '700';
+  const td = totC - totP;
+  const tdPct = totP > 0 ? td/totP : 0;
+  trTot.innerHTML = `<td>Total</td><td class="num">${totP}</td><td class="num">${totC}</td>
+    <td class="num ${td>=0?'delta-up':'delta-down'}">${td>=0?'+':''}${td}</td>
+    <td class="num ${tdPct>=0?'delta-up':'delta-down'}">${pctStr(tdPct)}</td>`;
+  body.appendChild(trTot);
+}
+
+// ══════════════════════════════════════════════════════════════════
+// RENDER DASHBOARD
+// ══════════════════════════════════════════════════════════════════
+function renderDashboard() {
+  renderKpis();
+  renderChartEvolucao();
+  renderChartUnidade();
+  renderTabelaUnidades();
+  renderTop10();
+  renderCombos();
+  renderChartClusterFat();
+  renderChartCliEvolucao();
+  renderChartNetAdds();
+  renderClusterShare();
+  renderSvcQtyTable();
+}
+
+// ══════════════════════════════════════════════════════════════════
+// REF TABLE
+// ══════════════════════════════════════════════════════════════════
+function renderRefTable() {
+  const body = document.getElementById('refBody');
+  body.innerHTML = '';
+  state.reference.sort((a,b) => a.cliente.localeCompare(b.cliente)).forEach(r => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${r.cliente}</td>
+      <td><span style="font-size:11px;color:var(--text2)">${r.cluster2||'–'}</span></td>
+      <td><span style="font-size:11px;color:var(--text2)">${(r.combos||'–').trim()}</span></td>
+    `;
+    body.appendChild(tr);
+  });
+  document.getElementById('refCount').textContent = state.reference.length + ' clientes';
+  document.getElementById('statusClientes').textContent = state.reference.length + ' clientes na base';
+}
+
+// ══════════════════════════════════════════════════════════════════
+// FILE UPLOAD + CLASSIFICATION
+// ══════════════════════════════════════════════════════════════════
+const uploadZone = document.getElementById('uploadZone');
+uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('drag'); });
+uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('drag'));
+uploadZone.addEventListener('drop', e => {
+  e.preventDefault(); uploadZone.classList.remove('drag');
+  const f = e.dataTransfer.files[0];
+  if (f) processFile(f);
+});
+
+let pendingData = null;
+
+function handleFileUpload(e) {
+  const f = e.target.files[0];
+  if (f) processFile(f);
+}
+
+function processFile(file) {
+  const reader = new FileReader();
+  reader.onload = evt => {
+    try {
+      const wb = XLSX.read(evt.target.result, { type: 'array' });
+      // Find the sheet with billing data (try 'Base faturamento' first)
+      let ws = wb.Sheets['Base faturamento'] || wb.Sheets[wb.SheetNames[0]];
+      const json = XLSX.utils.sheet_to_json(ws, { header: 1 });
+
+      // Find header row
+      let headerRow = -1;
+      console.log('[Vena] Sheets:', wb.SheetNames);
+      console.log('[Vena] Total rows in sheet:', json.length);
+      console.log('[Vena] First 3 rows:', JSON.stringify(json.slice(0,3)));
+      for (let i = 0; i < Math.min(15, json.length); i++) {
+        const row = json[i];
+        if (row && row.includes('Cliente / Fornecedor') && row.includes('Valor Bruto')) {
+          headerRow = i; break;
+        }
+      }
+      if (headerRow === -1) {
+        // Try looser match
+        for (let i = 0; i < Math.min(15, json.length); i++) {
+          const row = json[i];
+          if (!row) continue;
+          const strs = row.map(c => c == null ? '' : String(c));
+          if (strs.some(s => s.includes('Fornecedor')) && strs.some(s => s.includes('Bruto'))) {
+            headerRow = i; break;
+          }
+        }
+      }
+      if (headerRow === -1) {
+        alert('Não encontrei as colunas esperadas.\nPrimeiras linhas: ' + JSON.stringify(json.slice(0,5)));
+        return;
+      }
+      console.log('[Vena] Header row:', headerRow, json[headerRow]);
+      const headers = json[headerRow];
+      const rows = json.slice(headerRow + 1).filter(r => r && r[headers.indexOf('Valor Bruto')]);
+
+      // Fuzzy column finder — tolerant to accents, case, spaces
+      const findCol = (hdrs, ...candidates) => {
+        for (const h of hdrs) {
+          if (h == null) continue;
+          const norm = String(h).trim().toLowerCase()
+            .normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+          for (const c of candidates) {
+            const cn = c.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+            if (norm === cn) return hdrs.indexOf(h);
+          }
+        }
+        return -1;
+      };
+      const iCliente = findCol(headers, 'Cliente / Fornecedor', 'Cliente/Fornecedor', 'Cliente');
+      const iValor   = findCol(headers, 'Valor Bruto', 'ValorBruto', 'Valor');
+      const iComp    = findCol(headers, 'Competência', 'Competencia', 'Competência', 'Mes', 'Mês');
+      const iCC      = findCol(headers, 'Centro de Custos', 'CentroDeCustos', 'Centro Custos');
+      const iCluster = findCol(headers, 'Cluster2', 'Cluster 2', 'Cluster');
+      const iCombos  = findCol(headers, 'Combos', 'Combo');
+      const iPlano   = findCol(headers, 'Plano de Contas', 'PlanodeContas');
+
+      // Warn if critical columns missing
+      if (iCliente < 0 || iValor < 0 || iComp < 0 || iCC < 0) {
+        const missing = [iCliente<0&&'Cliente/Fornecedor', iValor<0&&'Valor Bruto', iComp<0&&'Competência', iCC<0&&'Centro de Custos'].filter(Boolean);
+        alert('Colunas não encontradas: ' + missing.join(', ') + '\nColunas disponíveis: ' + headers.filter(Boolean).join(', '));
+        return;
+      }
+
+      // Build reference map
+      const refMap = {};
+      state.reference.forEach(r => { refMap[r.cliente.trim().toUpperCase()] = r; });
+
+      // Collect all clients in new file
+      const clientSet = new Set();
+      rows.forEach(r => { if (r[iCliente]) clientSet.add(String(r[iCliente]).trim()); });
+
+      // Separate known vs new
+      pendingData = { rows, headers, iCliente, iValor, iComp, iCC, iCluster, iCombos, iPlano, refMap };
+
+      const newClients = [...clientSet].filter(c => !refMap[c.toUpperCase()]);
+      const knownClients = [...clientSet].filter(c => !!refMap[c.toUpperCase()]);
+
+      document.getElementById('classifyInfo').textContent =
+        `${clientSet.size} clientes encontrados — ${newClients.length} novos, ${knownClients.length} já classificados`;
+
+      buildClassifyTable(newClients, knownClients);
+      document.getElementById('classifySection').style.display = 'block';
+      uploadZone.querySelector('.upload-title').textContent = '✓ ' + file.name;
+      uploadZone.style.borderColor = 'var(--accent2)';
+    } catch(err) {
+      alert('Erro ao ler o arquivo: ' + err.message);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function buildClassifyTable(newClients, knownClients) {
+  const body = document.getElementById('classifyBody');
+  body.innerHTML = '';
+
+  const allForTable = [
+    ...newClients.map(c => ({ c, isNew: true })),
+    ...knownClients.map(c => ({ c, isNew: false }))
+  ];
+
+  allForTable.forEach(({ c, isNew }) => {
+    const known = pendingData.refMap[c.toUpperCase()];
+    const tr = document.createElement('tr');
+    tr.id = 'row-' + encodeURIComponent(c);
+    const clusterVal = isNew ? '' : (known?.cluster2 || '');
+    const combosVal = isNew ? '' : (known?.combos?.trim() || '');
+
+    tr.innerHTML = `
+      <td style="max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${c}">${c}</td>
+      <td><span class="tag ${isNew?'tag-new':'tag-known'}">${isNew?'NOVO':'OK'}</span></td>
+      <td>
+        <select data-cliente="${c}" data-field="cluster2" ${isNew?'':'style="opacity:.6"'}>
+          <option value="" ${!clusterVal?'selected':''}>-- selecione --</option>
+          <option value="GB - Franquias" ${clusterVal==='GB - Franquias'?'selected':''}>GB - Franquias</option>
+          <option value="GB- Truss" ${clusterVal==='GB- Truss'?'selected':''}>GB- Truss</option>
+          <option value="Outros" ${clusterVal==='Outros'?'selected':''}>Outros</option>
+        </select>
+      </td>
+      <td style="font-size:12px;color:var(--accent2)">⚡ calculado automaticamente</td>
+    `;
+    body.appendChild(tr);
+  });
+}
+
+function applyNewBase() {
+  if (!pendingData) return;
+
+  // Validate all new clients are classified
+  const rows = document.querySelectorAll('#classifyBody tr');
+  let missing = 0;
+  rows.forEach(tr => {
+    const badge = tr.querySelector('.tag-new');
+    if (badge) {
+      const cluster = tr.querySelector('[data-field="cluster2"]')?.value;
+      if (!cluster) missing++;
+    }
+  });
+  if (missing > 0) { alert(`Classifique todos os ${missing} clientes novos antes de continuar.`); return; }
+
+  // Collect classifications from UI
+  rows.forEach(tr => {
+    const selCluster = tr.querySelector('[data-field="cluster2"]');
+
+    if (!selCluster) return;
+    const cliente = selCluster.getAttribute('data-cliente');
+    const cluster2 = selCluster.value;
+    // Update reference (combo calculado automaticamente)
+    const existing = state.reference.find(r => r.cliente.trim().toUpperCase() === cliente.toUpperCase());
+    if (existing) { existing.cluster2 = cluster2; }
+    else state.reference.push({ cliente, cluster2, combos: '' });
+    // Update refMap
+    pendingData.refMap[cliente.toUpperCase()] = { cliente, cluster2 };
+  });
+
+  // Now rebuild pivot from new data
+  const { rows: dataRows, iCliente, iValor, iComp, iCC, refMap } = pendingData;
+
+  // Parse competência, recalculate pivot data
+  const newMonthSet = new Set();
+  const newPivotRows = [];
+
+  let parseOk = 0, parseSkip = 0, parseFail = 0;
+  // Log first 3 raw rows for diagnosis
+  console.log('[Vena] iCliente='+pendingData.iCliente+' iValor='+pendingData.iValor+' iComp='+pendingData.iComp+' iCC='+pendingData.iCC);
+  console.log('[Vena] Sample rows:', JSON.stringify(dataRows.slice(0,3).map(r => ({cli:r[pendingData.iCliente], val:r[pendingData.iValor], comp:r[pendingData.iComp], cc:r[pendingData.iCC]}))));
+  dataRows.forEach(r => {
+    const cliente = String(r[iCliente]||'').trim();
+    const valor = parseFloat(r[iValor]) || 0;
+    let comp = r[iComp];
+    const cc = String(r[iCC]||'').trim();
+    if (!comp || !cc || !cliente || valor === 0) { parseSkip++; return; }
+
+    // Parse date — handles Date, Excel serial, "4/2026", "2026-04", "01/04/2026" etc
+    let dt;
+    if (comp instanceof Date) {
+      dt = comp;
+    } else if (typeof comp === 'number') {
+      dt = new Date(Math.round((comp - 25569) * 86400 * 1000));
+    } else {
+      const s = String(comp).trim();
+      // Format "M/YYYY" or "MM/YYYY"
+      const mY = s.match(/^(\d{1,2})\/(\d{4})$/);
+      if (mY) { dt = new Date(parseInt(mY[2]), parseInt(mY[1])-1, 1); }
+      // Format "YYYY-MM"
+      else if (s.match(/^\d{4}-\d{2}$/)) { dt = new Date(s + '-01'); }
+      // Format "DD/MM/YYYY"
+      else { const p = s.split('/'); dt = p.length===3 ? new Date(p[2],p[1]-1,p[0]) : new Date(s); }
+    }
+    if (isNaN(dt)) { parseFail++; return; }
+
+    const mes = `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}`;
+    newMonthSet.add(mes);
+    newPivotRows.push({ cliente, valor, mes, cc });
+    parseOk++;
+  });
+  console.log('[Vena] Parse results: ok='+parseOk+' skipped='+parseSkip+' failed='+parseFail);
+  console.log('[Vena] Months found:', [...newMonthSet]);
+
+  // Rebuild pivot overlay for new months
+  const newMonths = [...newMonthSet].sort();
+  newMonths.forEach(mes => {
+    UNIDADES.forEach(u => {
+      const sum = newPivotRows.filter(r => r.mes === mes && r.cc === u).reduce((s,r) => s+r.valor/1000, 0);
+      if (!state.pivot[u]) state.pivot[u] = {};
+      state.pivot[u][mes] = Math.round(sum * 1000) / 1000;
+    });
+    const total = newPivotRows.filter(r => r.mes === mes);
+    state.activeClients[mes] = new Set(total.map(r => r.cliente)).size;
+
+    // Combos — calculado automaticamente (nº de Centros de Custo distintos por cliente)
+    const svcCount = {};
+    newPivotRows.filter(r => r.mes === mes).forEach(r => {
+      const key = r.cliente.toUpperCase();
+      if (!svcCount[key]) svcCount[key] = new Set();
+      svcCount[key].add(r.cc);
+    });
+    const comboMap = {};
+    Object.values(svcCount).forEach(ccSet => {
+      const cnt = ccSet.size;
+      const label = cnt === 1 ? 'Mono' : cnt === 2 ? '2 produtos' : cnt === 3 ? '3 produtos' : cnt === 4 ? '4 produtos' : '5 > Produtos';
+      comboMap[label] = (comboMap[label] || 0) + 1;
+    });
+    state.combos[mes] = comboMap;
+  });
+
+  // Update fat_cluster, cli_cluster, ratio_boti, ratio_svc for new months
+  newMonths.forEach(mes => {
+    // fat_cluster
+    const fcMap = {};
+    newPivotRows.filter(r => r.mes === mes).forEach(r => {
+      const ref = pendingData.refMap[r.cliente.toUpperCase()];
+      const cl = (ref?.cluster2 || 'Outros').trim();
+      fcMap[cl] = (fcMap[cl] || 0) + r.valor * 1000;
+    });
+    if (!state.fat_cluster[mes]) state.fat_cluster[mes] = {};
+    Object.assign(state.fat_cluster[mes], fcMap);
+
+    // cli_cluster
+    const ccSeen = {};
+    newPivotRows.filter(r => r.mes === mes).forEach(r => {
+      const ref = pendingData.refMap[r.cliente.toUpperCase()];
+      const cl = (ref?.cluster2 || 'Outros').trim();
+      if (!ccSeen[cl]) ccSeen[cl] = new Set();
+      ccSeen[cl].add(r.cliente.toUpperCase());
+    });
+    if (!state.cli_cluster[mes]) state.cli_cluster[mes] = {};
+    Object.keys(ccSeen).forEach(cl => { state.cli_cluster[mes][cl] = ccSeen[cl].size; });
+
+    // ratio_boti
+    const totalCli = new Set(newPivotRows.filter(r => r.mes === mes).map(r => r.cliente.toUpperCase())).size;
+    const gbCli = new Set(newPivotRows.filter(r => r.mes === mes).map(r => {
+      const ref = pendingData.refMap[r.cliente.toUpperCase()];
+      return (ref?.cluster2 || '').includes('GB') ? r.cliente.toUpperCase() : null;
+    }).filter(Boolean)).size;
+    state.ratio_boti[mes] = totalCli > 0 ? Math.round(gbCli / totalCli * 10000) / 10000 : 0;
+
+    // ratio_svc
+    const svcPairs = new Set(newPivotRows.filter(r => r.mes === mes).map(r => r.cliente.toUpperCase() + '|' + r.cc)).size;
+    state.ratio_svc[mes] = totalCli > 0 ? Math.round(svcPairs / totalCli * 10000) / 10000 : 0;
+
+    // svc_qty
+    if (!state.svc_qty[mes]) state.svc_qty[mes] = {};
+    UNIDADES.forEach(u => {
+      state.svc_qty[mes][u] = new Set(
+        newPivotRows.filter(r => r.mes === mes && r.cc === u).map(r => r.cliente.toUpperCase())
+      ).size;
+    });
+  });
+
+  // Update months list
+  newMonths.forEach(m => { if (!state.months.includes(m)) state.months.push(m); });
+  state.months.sort();
+
+  // Set selected month to latest
+  state.selectedMonth = state.months[state.months.length - 1];
+
+  // Rebuild top10 — merge new months with existing historical data
+  const [curY] = state.selectedMonth.split('-');
+  const top10Map = {};
+  // Seed with existing top10 (historical months already loaded)
+  const existingTop10 = state['top10_' + curY] || [];
+  existingTop10.forEach(([cli, val]) => { top10Map[cli] = val; });
+  // Add new rows from uploaded file
+  newPivotRows.filter(r => r.mes.startsWith(curY)).forEach(r => {
+    top10Map[r.cliente] = (top10Map[r.cliente] || 0) + r.valor * 1000;
+  });
+  if (Object.keys(top10Map).length > 0) {
+    state['top10_' + curY] = Object.entries(top10Map).sort((a,b) => b[1]-a[1]).slice(0,10);
+  }
+
+  document.getElementById('statusUpdated').textContent = 'Última atualização: ' + new Date().toLocaleDateString('pt-BR');
+  document.getElementById('classifySection').style.display = 'none';
+
+  // Show export button
+  const expBtn = document.getElementById('exportBtn');
+  expBtn.style.display = 'flex';
+
+  buildMonthSelector();
+  renderDashboard();
+  showTab('dashboard');
+  alert('✓ Dashboard atualizado com sucesso! Clique em "Salvar versão atualizada" para baixar o HTML com os novos dados.');
+}
+
+// ══════════════════════════════════════════════════════════════════
+// EXPORT UPDATED HTML
+// ══════════════════════════════════════════════════════════════════
+function exportUpdatedHTML() {
+  const btn = document.getElementById('exportBtn');
+  btn.textContent = '\u23f3 Gerando...';
+  btn.disabled = true;
+
+  setTimeout(() => {
+    try {
+      // Read template from hidden textarea (avoids outerHTML duplication)
+      const template = document.getElementById('htmlTemplate').value;
+
+      // Build new RAW block
+      const newRaw = 'var _RS="RAW_START";\nconst RAW = {\n' +
+        '  all_months: ' + JSON.stringify(state.months) + ',\n' +
+        '  pivot: ' + JSON.stringify(state.pivot) + ',\n' +
+        '  active_clients: ' + JSON.stringify(state.activeClients) + ',\n' +
+        '  net_additions: ' + JSON.stringify(state.netAdditions) + ',\n' +
+        '  combos: ' + JSON.stringify(state.combos) + ',\n' +
+        '  top10_2025: ' + JSON.stringify(state.top10_2025) + ',\n' +
+        '  top10_2026: ' + JSON.stringify(state.top10_2026) + ',\n' +
+        '  fat_cluster: ' + JSON.stringify(state.fat_cluster) + ',\n' +
+        '  cli_cluster: ' + JSON.stringify(state.cli_cluster) + ',\n' +
+        '  svc_qty: ' + JSON.stringify(state.svc_qty) + ',\n' +
+        '  ratio_svc: ' + JSON.stringify(state.ratio_svc) + ',\n' +
+        '  ratio_boti: ' + JSON.stringify(state.ratio_boti) + ',\n' +
+        '  reference: ' + JSON.stringify(state.reference) + ',\n' +
+        '  nps: ' + JSON.stringify(state.nps) + ',\n' +
+        '  selectedMonth: "' + state.selectedMonth + '"\n' +
+        '};\nvar _RE="RAW_END";';
+
+      // Replace placeholder in template
+      const PLACEHOLDER = 'var _RS="RAW_START";\nconst RAW = {};\nvar _RE="RAW_END";';
+      const updatedHTML = template.replace(PLACEHOLDER, newRaw);
+
+      // Download
+      const blob = new Blob([updatedHTML], { type: 'text/html;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const parts = state.selectedMonth.split('-');
+      a.download = 'Dashboard_Vena_' + parts[0] + parts[1] + '.html';
+      a.href = url;
+      a.click();
+      URL.revokeObjectURL(url);
+
+      btn.textContent = '\u2713 Salvo!';
+      btn.style.background = '#1db87a';
+      setTimeout(() => {
+        btn.textContent = '\u2b07 Salvar vers\u00e3o atualizada';
+        btn.style.background = '#3a7bd5';
+        btn.disabled = false;
+      }, 2500);
+    } catch(e) {
+      alert('Erro ao exportar: ' + e.message);
+      btn.textContent = '\u2b07 Salvar vers\u00e3o atualizada';
+      btn.disabled = false;
+    }
+  }, 100);
+}
+
+// NPS Modal
+function openNpsModal() {
+  const fields = document.getElementById('npsModalFields');
+  fields.innerHTML = '';
+  const services = [
+    { key: 'operacional', label: 'Operacional' },
+    { key: 'gerencial', label: 'Gerencial' }
+  ];
+  services.forEach(({ key, label }) => {
+    const d = state.nps[key];
+    ['y25','y26'].forEach(yr => {
+      const year = yr === 'y25' ? '2025' : '2026';
+      ['promotores','neutros','detratores'].forEach(tipo => {
+        const div = document.createElement('div');
+        div.className = 'field';
+        div.innerHTML = `
+          <label>${label} ${year} — ${tipo.charAt(0).toUpperCase()+tipo.slice(1)}</label>
+          <input type="number" min="0" max="1" step="0.001" 
+            id="nps-${key}-${yr}-${tipo}" 
+            value="${d[yr][tipo]}">
+        `;
+        fields.appendChild(div);
+      });
+    });
+  });
+  document.getElementById('npsModal').classList.add('open');
+}
+
+function closeNpsModal() {
+  document.getElementById('npsModal').classList.remove('open');
+}
+
+function saveNps() {
+  const services = ['operacional','gerencial'];
+  services.forEach(key => {
+    ['y25','y26'].forEach(yr => {
+      ['promotores','neutros','detratores'].forEach(tipo => {
+        const val = parseFloat(document.getElementById(`nps-${key}-${yr}-${tipo}`)?.value) || 0;
+        state.nps[key][yr][tipo] = val;
+      });
+      const { promotores, detratores } = state.nps[key][yr];
+      state.nps[key][yr].nps = promotores - detratores;
+    });
+  });
+  closeNpsModal();
+  renderNps();
+}
+
+
+// ══════════════════════════════════════════════════════════════════
+// FIREBASE — STATE & INIT
+// ══════════════════════════════════════════════════════════════════
+let state = {
+  months: [],
+  pivot: {},
+  activeClients: {},
+  netAdditions: {},
+  combos: {},
+  top10_2025: [],
+  top10_2026: [],
+  fat_cluster: {},
+  cli_cluster: {},
+  svc_qty: {},
+  ratio_svc: {},
+  ratio_boti: {},
+  reference: [],
+  nps: {},
+  selectedMonth: '',
+  compareYear: 2025
+};
+
+async function loadFromFirebase() {
+  const { initializeApp } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js");
+  const { getFirestore, doc, getDoc, getDocs, collection } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyAK4lsunhdu9NGxNUw4P2_QYgeDArzgwc8",
+    authDomain: "vena-dashboard-elit.firebaseapp.com",
+    projectId: "vena-dashboard-elit",
+    storageBucket: "vena-dashboard-elit.firebasestorage.app",
+    messagingSenderId: "165503793782",
+    appId: "1:165503793782:web:c67b004fbb88eedee43d57"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db  = getFirestore(app);
+
+  // Load meta
+  const metaSnap = await getDoc(doc(db, 'dashboard', 'meta'));
+  if (!metaSnap.exists()) { alert('Dados não encontrados. Execute o seed primeiro.'); return; }
+  const meta = metaSnap.data();
+  state.months = meta.all_months || [];
+  state.selectedMonth = meta.selectedMonth || state.months[state.months.length-1];
+
+  // Load all months in parallel
+  const monthDocs = await Promise.all(
+    state.months.map(m => getDoc(doc(db, 'dashboard', 'months_' + m.replace('-',''))))
+  );
+  monthDocs.forEach(snap => {
+    if (!snap.exists()) return;
+    const d = snap.data();
+    const m = d.mes;
+    if (!state.pivot[Object.keys(d.pivot||{})[0]]) {
+      Object.keys(d.pivot||{}).forEach(u => { if (!state.pivot[u]) state.pivot[u] = {}; });
+    }
+    Object.keys(d.pivot||{}).forEach(u => { state.pivot[u][m] = d.pivot[u]; });
+    state.activeClients[m]  = d.active_clients || 0;
+    state.netAdditions[m]   = d.net_additions  || 0;
+    state.combos[m]         = d.combos         || {};
+    state.fat_cluster[m]    = d.fat_cluster     || {};
+    state.cli_cluster[m]    = d.cli_cluster     || {};
+    state.svc_qty[m]        = d.svc_qty         || {};
+    state.ratio_svc[m]      = d.ratio_svc       || 0;
+    state.ratio_boti[m]     = d.ratio_boti      || 0;
+  });
+
+  // Load top10
+  const top10Snap = await getDoc(doc(db, 'dashboard', 'top10'));
+  if (top10Snap.exists()) {
+    const t = top10Snap.data();
+    state.top10_2025 = t.top10_2025 || [];
+    state.top10_2026 = t.top10_2026 || [];
+  }
+
+  // Load NPS
+  const npsSnap = await getDoc(doc(db, 'dashboard', 'nps'));
+  if (npsSnap.exists()) state.nps = npsSnap.data();
+
+  // Load reference
+  const refSnap = await getDocs(collection(db, 'reference'));
+  state.reference = [];
+  refSnap.forEach(d => state.reference.push(d.data()));
+
+  // Update last update badge
+  if (meta.updatedAt) {
+    const d = new Date(meta.updatedAt);
+    document.getElementById('lastUpdate').textContent =
+      'Atualizado ' + d.toLocaleDateString('pt-BR');
+  }
+
+  // Hide loading, render
+  document.getElementById('loadingOverlay').classList.add('hidden');
+  buildMonthSelector();
+  renderDashboard();
+  renderRefTable();
+}
+
+// Remove export button (not needed in web version)
+document.addEventListener('DOMContentLoaded', () => {
+  const btn = document.getElementById('exportBtn');
+  if (btn) btn.style.display = 'none';
+});
+
+// ── INIT
+loadFromFirebase().catch(e => {
+  console.error(e);
+  document.querySelector('.loading-text').textContent = 'Erro ao carregar: ' + e.message;
+});
+
+</script>
+</body>
+</html>

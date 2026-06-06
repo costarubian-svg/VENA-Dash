@@ -1,0 +1,17 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Dashboard data — public read, only authenticated write
+    match /dashboard/{document=**} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+
+    // Reference table (client classifications) — same rules
+    match /reference/{document=**} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+  }
+}
