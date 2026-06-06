@@ -88,12 +88,13 @@ window.runSeed = async function() {
       logMsg(`  ✓ ${mes}`, 'ok');
     }
 
-    // Write top10
+    // Write top10 — convert nested arrays to objects (Firestore doesn't support nested arrays)
     logMsg('🏆 Salvando top10...');
+    const toObj = arr => (arr||[]).map(([cliente, valor]) => ({ cliente, valor }));
     await setDoc(doc(db, 'dashboard', 'top10'), {
-      top10_2024: data.top10_2024 || [],
-      top10_2025: data.top10_2025 || [],
-      top10_2026: data.top10_2026 || [],
+      top10_2024: toObj(data.top10_2024),
+      top10_2025: toObj(data.top10_2025),
+      top10_2026: toObj(data.top10_2026),
     });
     logMsg('✓ top10', 'ok');
 

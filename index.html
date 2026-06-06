@@ -1771,8 +1771,10 @@ async function loadFromFirebase() {
   const top10Snap = await getDoc(doc(db, 'dashboard', 'top10'));
   if (top10Snap.exists()) {
     const t = top10Snap.data();
-    state.top10_2025 = t.top10_2025 || [];
-    state.top10_2026 = t.top10_2026 || [];
+    // Convert from Firestore objects {cliente,valor} back to [name,value] arrays
+    const fromObj = arr => (arr||[]).map(r => Array.isArray(r) ? r : [r.cliente, r.valor]);
+    state.top10_2025 = fromObj(t.top10_2025);
+    state.top10_2026 = fromObj(t.top10_2026);
   }
 
   // Load NPS

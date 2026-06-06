@@ -522,9 +522,9 @@ window.publishData = async function() {
     const top10Data = top10Snap.exists() ? top10Snap.data() : {};
     const yearRows = newPivotRows.filter(r => r.mes.startsWith(year));
     const top10Map = {};
-    (top10Data[`top10_${year}`]||[]).forEach(([c,v]) => { top10Map[c] = (top10Map[c]||0)+v; });
+    (top10Data[`top10_${year}`]||[]).forEach(r => { const c = r.cliente||r[0]; const v = r.valor||r[1]||0; top10Map[c] = (top10Map[c]||0)+v; });
     yearRows.forEach(r => { top10Map[r.cli] = (top10Map[r.cli]||0)+r.valor; });
-    top10Data[`top10_${year}`] = Object.entries(top10Map).sort((a,b)=>b[1]-a[1]).slice(0,10);
+    top10Data[`top10_${year}`] = Object.entries(top10Map).sort((a,b)=>b[1]-a[1]).slice(0,10).map(([cliente,valor]) => ({cliente,valor}));
     await setDoc(doc(db, 'dashboard', 'top10'), top10Data);
 
     // 4. Update reference
