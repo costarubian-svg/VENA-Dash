@@ -319,6 +319,39 @@
 
   .full-width { grid-column: 1 / -1; }
 
+  /* Login */
+  .login-overlay {
+    position: fixed; inset: 0; background: #f4f6fa;
+    display: flex; align-items: center; justify-content: center;
+    z-index: 1000;
+  }
+  .login-overlay.hidden { display: none; }
+  .login-box {
+    background: #fff; border: 1px solid #dde1ea;
+    border-radius: 16px; padding: 36px; width: 340px;
+    box-shadow: 0 8px 32px rgba(0,0,0,.1); text-align: center;
+  }
+  .login-box img { height: 32px; margin-bottom: 24px; }
+  .login-title { font-size: 18px; font-weight: 700; margin-bottom: 6px; color: #1a1f2e; }
+  .login-sub { font-size: 13px; color: #5a6478; margin-bottom: 24px; }
+  .login-field { display: flex; flex-direction: column; gap: 5px; margin-bottom: 14px; text-align: left; }
+  .login-field label { font-size: 11px; font-weight: 600; color: #5a6478; text-transform: uppercase; letter-spacing: .8px; }
+  .login-field input {
+    background: #f0f2f7; border: 1px solid #dde1ea; color: #1a1f2e;
+    padding: 10px 12px; border-radius: 7px; font-size: 13px; outline: none;
+    font-family: 'DM Sans', sans-serif; transition: border-color .15s;
+  }
+  .login-field input:focus { border-color: #3a7bd5; }
+  .login-btn {
+    width: 100%; background: #3a7bd5; color: #fff; border: none;
+    padding: 11px; border-radius: 7px; font-size: 14px; font-weight: 600;
+    cursor: pointer; font-family: 'DM Sans', sans-serif; transition: opacity .15s;
+    margin-top: 4px;
+  }
+  .login-btn:hover { opacity: .85; }
+  .login-btn:disabled { opacity: .5; cursor: not-allowed; }
+  .login-error { color: #e05252; font-size: 12px; margin-top: 10px; min-height: 18px; }
+
   /* Loading */
   .loading-overlay {
     position: fixed; inset: 0; background: #f4f6fa;
@@ -343,6 +376,26 @@
 </style>
 </head>
 <body>
+
+<!-- LOGIN OVERLAY -->
+<div class="login-overlay" id="loginOverlay">
+  <div class="login-box">
+    <img src="logo.png" alt="Vena" onerror="this.style.display='none'">
+    <div class="login-title">Dashboard Vena</div>
+    <div class="login-sub">Acesse com suas credenciais</div>
+    <div class="login-field">
+      <label>Email</label>
+      <input type="email" id="loginEmail" placeholder="seu@email.com">
+    </div>
+    <div class="login-field">
+      <label>Senha</label>
+      <input type="password" id="loginPass" placeholder="••••••••"
+        onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <button class="login-btn" id="loginBtn" onclick="doLogin()">Entrar</button>
+    <div class="login-error" id="loginError"></div>
+  </div>
+</div>
 
 <div class="loading-overlay" id="loadingOverlay">
   <img src="logo.png" style="height:32px;margin-bottom:24px;opacity:.6" onerror="this.style.display='none'">
@@ -1714,9 +1767,13 @@ let state = {
   compareYear: 2025
 };
 
-async function loadFromFirebase() {
+let _db = null, _auth = null;
+
+async function initFirebase() {
+  if (_db) return { db: _db, auth: _auth };
   const { initializeApp } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js");
-  const { getFirestore, doc, getDoc, getDocs, collection } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
+  const { getFirestore } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
+  const { getAuth, signInWithEmailAndPassword, onAuthStateChanged } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js");
 
   const firebaseConfig = {
     apiKey: "AIzaSyAK4lsunhdu9NGxNUw4P2_QYgeDArzgwc8",
@@ -1728,7 +1785,35 @@ async function loadFromFirebase() {
   };
 
   const app = initializeApp(firebaseConfig);
-  const db  = getFirestore(app);
+  _db   = getFirestore(app);
+  _auth = getAuth(app);
+  return { db: _db, auth: _auth, signInWithEmailAndPassword, onAuthStateChanged };
+}
+
+window.doLogin = async function() {
+  const btn = document.getElementById('loginBtn');
+  const errEl = document.getElementById('loginError');
+  const email = document.getElementById('loginEmail').value.trim();
+  const pass  = document.getElementById('loginPass').value;
+  if (!email || !pass) { errEl.textContent = 'Preencha email e senha.'; return; }
+  btn.disabled = true;
+  btn.textContent = 'Entrando...';
+  errEl.textContent = '';
+  try {
+    const { auth, signInWithEmailAndPassword } = await initFirebase();
+    await signInWithEmailAndPassword(auth, email, pass);
+    document.getElementById('loginOverlay').classList.add('hidden');
+    loadFromFirebase();
+  } catch(e) {
+    errEl.textContent = 'Email ou senha incorretos.';
+    btn.disabled = false;
+    btn.textContent = 'Entrar';
+  }
+};
+
+async function loadFromFirebase() {
+  const { db } = await initFirebase();
+  const { doc, getDoc, getDocs, collection } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
 
   // Load meta
   const metaSnap = await getDoc(doc(db, 'dashboard', 'meta'));
@@ -1798,11 +1883,18 @@ document.addEventListener('DOMContentLoaded', () => {
   if (btn) btn.style.display = 'none';
 });
 
-// ── INIT
-loadFromFirebase().catch(e => {
-  console.error(e);
-  document.querySelector('.loading-text').textContent = 'Erro ao carregar: ' + e.message;
-});
+// ── INIT — check auth first
+initFirebase().then(({ auth, onAuthStateChanged }) => {
+  onAuthStateChanged(auth, user => {
+    if (user) {
+      document.getElementById('loginOverlay').classList.add('hidden');
+      loadFromFirebase().catch(e => {
+        document.querySelector('.loading-text').textContent = 'Erro ao carregar: ' + e.message;
+      });
+    }
+    // if not logged in, login overlay stays visible
+  });
+}).catch(e => console.error(e));
 
 </script>
 </body>
