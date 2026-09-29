@@ -678,7 +678,7 @@
 // DATA
 // ══════════════════════════════════════════════════════════════════
 
-const UNIDADES = ['Comercial','Conecta','Contábil','Gerencial','Operacional','Suprimentos','TI','Treinamento'];
+const UNIDADES = ['Comercial','Conecta','Contábil','Gerencial','Operacional','Suprimentos','TI','Treinamento','Governança','Eficiência'];
 const COMBO_COLORS = ['#4f8ef7','#34d399','#f59e0b','#a78bfa','#f87171'];
 const COMBO_LABELS = ['Mono','2 produtos','3 produtos','4 produtos','5 > Produtos'];
 
@@ -861,7 +861,7 @@ function renderChartEvolucao() {
 // ══════════════════════════════════════════════════════════════════
 function renderChartUnidade() {
   const m = state.selectedMonth;
-  const unidadeColors = ['#4f8ef7','#34d399','#f59e0b','#a78bfa','#f87171','#38bdf8','#fb923c','#4ade80'];
+  const unidadeColors = ['#4f8ef7','#34d399','#f59e0b','#a78bfa','#f87171','#38bdf8','#fb923c','#4ade80','#f472b6','#facc15'];
   const vals = UNIDADES.map(u => state.pivot[u]?.[m] || 0).filter(v => v > 0);
   const lbls = UNIDADES.filter(u => (state.pivot[u]?.[m] || 0) > 0);
 
@@ -1833,9 +1833,7 @@ async function loadFromFirebase() {
     if (!snap.exists()) return;
     const d = snap.data();
     const m = d.mes;
-    if (!state.pivot[Object.keys(d.pivot||{})[0]]) {
-      Object.keys(d.pivot||{}).forEach(u => { if (!state.pivot[u]) state.pivot[u] = {}; });
-    }
+    Object.keys(d.pivot||{}).forEach(u => { if (!state.pivot[u]) state.pivot[u] = {}; });
     Object.keys(d.pivot||{}).forEach(u => { state.pivot[u][m] = d.pivot[u]; });
     state.activeClients[m]  = d.active_clients || 0;
     state.netAdditions[m]   = d.net_additions  || 0;
