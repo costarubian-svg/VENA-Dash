@@ -871,7 +871,7 @@ function renderChartUnidade() {
     type: 'doughnut',
     data: {
       labels: lbls,
-      datasets: [{ data: vals, backgroundColor: unidadeColors.slice(0, vals.length), borderWidth: 2, borderColor: '#161920' }]
+      datasets: [{ data: vals, backgroundColor: vals.map((_, i) => unidadeColors[i % unidadeColors.length]), borderWidth: 2, borderColor: '#161920' }]
     },
     options: {
       responsive: true, maintainAspectRatio: true,
@@ -1833,7 +1833,7 @@ async function loadFromFirebase() {
     if (!snap.exists()) return;
     const d = snap.data();
     const m = d.mes;
-    Object.keys(d.pivot||{}).forEach(u => { if (!state.pivot[u]) state.pivot[u] = {}; });
+    Object.keys(d.pivot||{}).forEach(u => { if (!state.pivot[u]) state.pivot[u] = {}; if (!UNIDADES.includes(u)) UNIDADES.push(u); });
     Object.keys(d.pivot||{}).forEach(u => { state.pivot[u][m] = d.pivot[u]; });
     state.activeClients[m]  = d.active_clients || 0;
     state.netAdditions[m]   = d.net_additions  || 0;
