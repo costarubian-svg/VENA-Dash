@@ -322,15 +322,16 @@ function parseSheet(json) {
   let headerRow = -1;
   for (let i = 0; i < Math.min(25, json.length); i++) {
     const r = json[i];
-    if (r && r.some(c => String(c||'').includes('Fornecedor') || /^cliente$/i.test(String(c||'').trim()))
-          && r.some(c => /bruto|^valor$/i.test(String(c||'').trim()))) { headerRow = i; break; }
+    const cells = (r || []).map(c => unaccent(c).trim().toLowerCase());
+    if (cells.some(c => c.includes('fornecedor') || c === 'cliente' || c === 'pessoa')
+          && cells.some(c => /bruto|^valor$|^valor total/.test(c))) { headerRow = i; break; }
   }
-  if (headerRow === -1) throw new Error('Não encontrei as colunas "Cliente / Fornecedor" e "Valor Bruto" no arquivo.');
+  if (headerRow === -1) throw new Error('Não encontrei as colunas de cliente e valor no arquivo.');
   const headers = json[headerRow].map(h => unaccent(h).trim().toLowerCase());
   const col = (...c) => { for (const x of c) { const i = headers.indexOf(unaccent(x).toLowerCase()); if (i >= 0) return i; } return -1; };
-  const iCli = col('Cliente / Fornecedor','Cliente'), iVal = col('Valor Bruto','Valor'),
+  const iCli = col('Cliente / Fornecedor','Cliente','Pessoa'), iVal = col('Valor Bruto','Valor Total (R$)','Valor Total','Valor'),
         iComp = col('Competência','Competencia','Mês','Mes'), iCC = col('Centro de Custos','Centro de Custo'),
-        iConta = col('Conta','Plano de Contas');
+        iConta = col('Conta','Classificação','Plano de Contas');
   if (iCli < 0 || iVal < 0) throw new Error('Colunas de cliente/valor não encontradas.');
   const rows = [];
   json.slice(headerRow+1).forEach(r => {
@@ -343,6 +344,20 @@ function parseSheet(json) {
   });
   return rows;
 }
+
+// Procura no arquivo a aba com a base (ignora abas de tabela dinâmica/resumo)
+function parseWorkbook(wb, XLSX) {
+  const names = [...(wb.Sheets['Base faturamento'] ? ['Base faturamento'] : []), ...wb.SheetNames.filter(n => n !== 'Base faturamento')];
+  let lastErr;
+  for (const n of names) {
+    try { const rows = parseSheet(XLSX.utils.sheet_to_json(wb.Sheets[n], { header: 1 })); if (rows.length) return { rows, sheet: n }; }
+    catch (e) { lastErr = e; }
+  }
+  throw lastErr || new Error('Nenhuma linha com valor encontrada.');
+}
+
+const IGNORAR = '__IGNORAR__';
+const isGroupCompany = raw => /^\s*vena\b/i.test(unaccent(raw));   // empresas do próprio grupo Vena
 
 // Mês mais frequente + distribuição
 function monthStats(rows) {
@@ -428,7 +443,7 @@ function deactivateFrom(n) {
 }
 
 // ── Estado
-let fileName = '';
+let fileName = '', sheetName = '';
 let rawRows = [];           // linhas do arquivo
 let ctx = null;             // cadastro, de-para, meses publicados
 let ccRes = {};             // ccRaw → {cc, how}
@@ -436,6 +451,7 @@ let cliRes = {};            // cliRaw → {cli, how}
 let pendCC = [], pendCli = [];
 let finalRows = [];         // {cli, valor, mes, cc, cliRaw, ccRaw, conta}
 let finalMes = null;
+let ignoredRows = [];
 let pendingRefMap = {};
 
 // ── Upload
@@ -477,16 +493,15 @@ async function handleFileRaw(file) {
   try {
     const buf = await file.arrayBuffer();
     const wb = XLSX.read(buf, { type: 'array' });
-    const ws = wb.Sheets['Base faturamento'] || wb.Sheets[wb.SheetNames[0]];
-    rawRows = parseSheet(XLSX.utils.sheet_to_json(ws, { header: 1 }));
-    if (!rawRows.length) throw new Error('Nenhuma linha com valor encontrada.');
+    const parsed = parseWorkbook(wb, XLSX);
+    rawRows = parsed.rows; sheetName = parsed.sheet;
     ctx = await loadContext();
   } catch (e) {
     uploadZone.innerHTML = `<div style="color:var(--down);font-weight:600">✗ ${esc(e.message)}</div><div class="upload-sub" style="margin-top:6px">Clique para tentar outro arquivo</div><input type="file" id="fileInput" accept=".xlsx,.xls" onchange="handleFile(event)">`;
     console.error(e); return;
   }
   const total = rawRows.reduce((s, r) => s + r.valor, 0);
-  uploadZone.innerHTML = `<div style="color:var(--up);font-weight:600">✓ ${esc(file.name)}</div><div style="font-size:12px;color:var(--text2);margin-top:4px">${rawRows.length} linhas · ${brl(total)} · clique para trocar o arquivo</div><input type="file" id="fileInput" accept=".xlsx,.xls" onchange="handleFile(event)">`;
+  uploadZone.innerHTML = `<div style="color:var(--up);font-weight:600">✓ ${esc(file.name)}</div><div style="font-size:12px;color:var(--text2);margin-top:4px">aba "${esc(sheetName)}" · ${rawRows.length} linhas · ${brl(total)} · clique para trocar o arquivo</div><input type="file" id="fileInput" accept=".xlsx,.xls" onchange="handleFile(event)">`;
   document.getElementById('s1num').classList.add('done');
   buildReview();
   activate(2);
@@ -526,6 +541,7 @@ function buildReview() {
   pendCli = allCli.filter(c => !cliRes[c.raw].cli).sort((a,b) => b.v - a.v);
   pendCli.forEach(c => { c.sug = suggest(c.raw, ctx.refNames, ctx.aliasPairs, 3); });
   const nSalvo = allCli.filter(c => cliRes[c.raw].how === 'salvo').length;
+  const ignSalvo = allCli.filter(c => cliRes[c.raw].cli === IGNORAR);
   const autoIgual = allCli.filter(c => cliRes[c.raw].how === 'igual' && keyOf(c.raw) !== keyOf(cliRes[c.raw].cli));
 
   const howLbl = { salvo: 'de-para salvo', igual: 'igual', ajuste: 'maiúsc./acento', conta: 'pela conta' };
@@ -562,19 +578,21 @@ function buildReview() {
 
   // Clientes
   h += `<div class="rv-block"><div class="rv-title">Clientes ${pendCli.length ? `<span class="tag tag-new">${pendCli.length} não reconhecidos</span>` : '<span class="tag tag-ok">tudo reconhecido</span>'}</div>
-    <div style="font-size:12px;color:var(--text2);margin-bottom:8px">${allCli.length} clientes no arquivo · ${nSalvo} pelo de-para salvo · ${allCli.length - nSalvo - pendCli.length} pelo nome</div>`;
+    <div style="font-size:12px;color:var(--text2);margin-bottom:8px">${allCli.length} nomes no arquivo · ${nSalvo} pelo de-para salvo · ${allCli.length - nSalvo - pendCli.length} pelo nome${ignSalvo.length ? ` · ${ignSalvo.length} ignorados por regra salva (${ignSalvo.map(c => esc(c.raw)).join(', ')})` : ''}</div>`;
   if (pendCli.length) {
     h += `<div style="font-size:12px;color:var(--text2);margin-bottom:8px">Para cada um: ligue a um cliente que já existe no dash ou marque como <b>cliente novo</b>. A escolha fica salva — no próximo mês ele passa direto.</div>
       <datalist id="refList">${ctx.refNames.slice().sort().map(n => `<option value="${esc(n)}">`).join('')}</datalist>
       <div class="classify-wrap"><table><thead><tr><th>No arquivo</th><th class="num">Valor</th><th>Ligar a</th><th></th></tr></thead><tbody>`;
     pendCli.forEach((c, i) => {
       const best = c.sug[0];
-      const preNovo = !best || best[1] < 85;
+      const preIgn = isGroupCompany(c.raw);
+      const preNovo = !preIgn && (!best || best[1] < 85);
       h += `<tr><td style="font-size:12px">${esc(c.raw)}</td><td class="num">${brl(c.v)}</td>
         <td><select id="cliSel${i}" onchange="cliMode(${i})" style="max-width:300px">
-          ${c.sug.map(([n, sc], j) => `<option value="s${j}" ${!preNovo && j===0 ? 'selected' : ''}>${esc(n)} (${sc}%)</option>`).join('')}
+          ${c.sug.map(([n, sc], j) => `<option value="s${j}" ${!preNovo && !preIgn && j===0 ? 'selected' : ''}>${esc(n)} (${sc}%)</option>`).join('')}
           <option value="novo" ${preNovo ? 'selected' : ''}>★ Cliente novo</option>
           <option value="outro">Outro cliente do cadastro…</option>
+          <option value="ignorar" ${preIgn ? 'selected' : ''}>✕ Ignorar (não entra no dash)</option>
         </select></td>
         <td><input id="cliTxt${i}" class="rv-input" style="width:220px;${preNovo ? '' : 'display:none'}" value="${preNovo ? esc(cleanNewName(c.raw)) : ''}" list="" placeholder="nome"></td></tr>`;
     });
@@ -632,7 +650,9 @@ window.confirmReview = function() {
   // Clientes
   for (let i = 0; i < pendCli.length; i++) {
     const c = pendCli[i], v = document.getElementById('cliSel'+i).value, t = document.getElementById('cliTxt'+i).value.trim();
-    if (v === 'novo') {
+    if (v === 'ignorar') {
+      cliRes[c.raw] = { cli: IGNORAR, how: 'manual' };
+    } else if (v === 'novo') {
       if (!t) { alert(`Dê um nome para o cliente novo "${c.raw}".`); return; }
       const ex = ctx.refMap[t.toUpperCase()];
       cliRes[c.raw] = { cli: ex ? ex.cliente.trim() : t.toUpperCase(), how: 'manual' };
@@ -646,7 +666,8 @@ window.confirmReview = function() {
   }
   // Linhas finais
   finalMes = mes;
-  finalRows = rawRows.map(r => {
+  ignoredRows = rawRows.filter(r => cliRes[r.cliRaw].cli === IGNORAR);
+  finalRows = rawRows.filter(r => cliRes[r.cliRaw].cli !== IGNORAR).map(r => {
     const res = resolveCC(r, ctx.ccMap, ctx.unidades);
     const key = r.ccRaw || ('(vazio) ' + (res.cc ? '→ conta' : r.conta));
     const cc = res.cc || ccChoice[key];
@@ -719,6 +740,7 @@ function enableStep4() {
   document.getElementById('publishSummary').innerHTML =
     `<b>${monthLabel(finalMes)}</b> · ${finalRows.length} linhas · <b>${brl(total)}</b> · ${nCli} clientes ativos<br>` +
     Object.entries(porUn).sort((a,b)=>b[1]-a[1]).map(([u,v]) => `${esc(u)}: ${brl(v)}`).join(' · ') +
+    (ignoredRows.length ? `<br><span style="color:var(--text2)">Fora do dash (ignorados): ${new Set(ignoredRows.map(r => r.cliRaw)).size} nomes · ${brl(ignoredRows.reduce((s, r) => s + r.valor, 0))}</span>` : '') +
     (rep ? `<div class="rv-warn" style="margin-top:8px">⚠ ${monthLabel(finalMes)} já foi publicado. Publicar de novo substitui os números do mês.</div>` : '');
 }
 
